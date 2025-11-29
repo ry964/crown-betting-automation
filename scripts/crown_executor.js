@@ -356,35 +356,88 @@ async function expandLeague(leagueName) {
         const leagueLower = leagueName.toLowerCase();
         const allElements = document.querySelectorAll('*');
 
+        console.log(`[Crown Executor] 📊 扫描${allElements.length}个元素查找联赛: ${leagueName}`);
+        let candidates = [];
+
         for (const element of allElements) {
             if (element.offsetParent === null) continue;
 
-            const text = element.textContent.toLowerCase().trim();
+            const text = element.textContent.trim();
+            const textLower = text.toLowerCase();
 
-            // 匹配联赛名称
-            if (text === leagueLower || text.includes(leagueLower)) {
-                // 检查是否可点击
-                const isClickable =
-                    element.tagName === 'DIV' ||
-                    element.tagName === 'A' ||
-                    element.onclick ||
-                    window.getComputedStyle(element).cursor === 'pointer';
+            // 精确匹配：文本恰好是联赛名 或 文本很短且包含联赛名
+            const isExactMatch = textLower === leagueLower;
+            const isShortMatch = text.length <= 20 && textLower.includes(leagueLower);
 
-                if (isClickable && text.length < 50) {
-                    console.log(`[Crown Executor] 找到联赛元素: "${text}"`, element);
+            // 也尝试匹配包含联赛名的独立单词（如 "NBA Matches" 或 "NBA"）
+            const wordBoundaryMatch = new RegExp(`\\b${leagueLower}\\b`, 'i').test(text);
 
-                    // 点击展开
-                    element.click();
-                    console.log('[Crown Executor] ✅ 已点击展开联赛');
+            if (isExactMatch || (isShortMatch && wordBoundaryMatch)) {
+                candidates.push({
+                    element: element,
+                    text: text,
+                    exactMatch: isExactMatch
+                });
 
-                    // 等待加载
-                    await new Promise(resolve => setTimeout(resolve, 500));
-                    return true;
-                }
+                console.log(`[Crown Executor] 📝 发现联赛候选: "${text}" (精确匹配: ${isExactMatch})`, element);
             }
         }
 
-        console.log('[Crown Executor] 未找到可展开的联赛元素');
+        console.log(`[Crown Executor] 📊 找到${candidates.length}个联赛候选元素`);
+
+        // 优先选择精确匹配
+        candidates.sort((a, b) => {
+            if (a.exactMatch && !b.exactMatch) return -1;
+            if (!a.exactMatch && b.exactMatch) return 1;
+            return a.text.length - b.text.length; // 文本越短越好
+        });
+
+        for (const candidate of candidates) {
+            const element = candidate.element;
+
+            // 检查元素本身或其父元素是否可点击
+            let clickableElement = null;
+
+            // 检查元素本身
+            const elementClickable = element.tagName === 'DIV' ||
+                element.tagName === 'A' ||
+                element.onclick ||
+                window.getComputedStyle(element).cursor === 'pointer';
+
+            if (elementClickable) {
+                clickableElement = element;
+            } else {
+                // 检查父元素（最多向上3层）
+                let parent = element.parentElement;
+                for (let i = 0; i < 3 && parent; i++) {
+                    const parentClickable = parent.tagName === 'DIV' ||
+                        parent.tagName === 'A' ||
+                        parent.onclick ||
+                        window.getComputedStyle(parent).cursor === 'pointer';
+
+                    if (parentClickable) {
+                        clickableElement = parent;
+                        console.log(`[Crown Executor] 找到可点击的父元素 (${i + 1}层)`, parent);
+                        break;
+                    }
+                    parent = parent.parentElement;
+                }
+            }
+
+            if (clickableElement) {
+                console.log(`[Crown Executor] ✅ 找到可点击的联赛元素: "${candidate.text}"`, clickableElement);
+
+                // 点击展开
+                clickableElement.click();
+                console.log('[Crown Executor] ✅ 已点击展开联赛');
+
+                // 等待加载
+                await new Promise(resolve => setTimeout(resolve, 800));
+                return true;
+            }
+        }
+
+        console.log('[Crown Executor] ⚠️ 未找到可点击的联赛元素');
         return false;
     } catch (error) {
         console.error('[Crown Executor] 展开联赛时出错:', error);
