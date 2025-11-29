@@ -6,48 +6,99 @@
 console.log('[OddsJam Scraper] 脚本已加载');
 
 /**
- * 提取比赛时间信息
- * @returns {string|null} - 比赛时间字符串
+ * 提取比赛信息（时间和运动类型）
+ * @returns {Object|null} - {time: string, sport: string} 或 null
  */
-function extractMatchTime() {
+function extractMatchInfo() {
     try {
-        // 查找包含时间信息的元素
-        // 根据截图，时间显示在比赛标题附近，格式如 "Sat, Nov 29 at 4:00 AM"
+        console.log('[OddsJam Scraper] 开始提取比赛信息...');
+
+        // 查找包含时间和运动信息的元素
+        // 格式：队名 + 时间 + 运动类型
+        // 例如："Aston Villa FC vs Wolverhampton Wanderers FC"
+        //       "Sun, Nov 30 at 10:05 PM"
+        //       "Soccer"
 
         // 方法1: 通过页面标题区域查找
         const titleSection = document.querySelector('h1, h2, [class*="title"], [class*="header"]');
         if (titleSection) {
-            const timeElement = titleSection.parentElement?.querySelector('[class*="time"], [class*="date"]');
-            if (timeElement) {
-                return timeElement.textContent.trim();
+            const container = titleSection.parentElement;
+            const allText = container?.textContent || '';
+
+            // 提取时间
+            const timeMatch = allText.match(/[A-Za-z]{3},\s+[A-Za-z]{3}\s+\d{1,2}\s+at\s+\d{1,2}:\d{2}\s+[AP]M/);
+
+            // 提取运动类型（在时间之后的单独文本）
+            const sportKeywords = ['Soccer', 'Basketball', 'Football', 'Tennis', 'Baseball',
+                'Hockey', 'Volleyball', 'MMA', 'Boxing', 'eSports',
+                'Snooker', 'Cricket', 'Rugby', 'Golf'];
+
+            let sportType = null;
+            for (const keyword of sportKeywords) {
+                const regex = new RegExp(`\\b${keyword}\\b`, 'i');
+                if (regex.test(allText)) {
+                    sportType = keyword;
+                    break;
+                }
             }
 
-            // 尝试在标题同级元素中查找
-            const siblings = Array.from(titleSection.parentElement?.children || []);
-            for (const sibling of siblings) {
-                const text = sibling.textContent;
-                // 匹配时间格式: "Day, Mon DD at HH:MM AM/PM"
-                const timeMatch = text.match(/[A-Za-z]{3},\s+[A-Za-z]{3}\s+\d{1,2}\s+at\s+\d{1,2}:\d{2}\s+[AP]M/);
-                if (timeMatch) {
-                    return timeMatch[0];
-                }
+            if (timeMatch) {
+                const result = {
+                    time: timeMatch[0],
+                    sport: sportType || 'Unknown'
+                };
+                console.log('[OddsJam Scraper] 提取成功:', result);
+                return result;
             }
         }
 
         // 方法2: 全局搜索时间格式
         const allElements = document.querySelectorAll('*');
+        let foundTime = null;
+        let foundSport = null;
+
         for (const element of allElements) {
             const text = element.textContent;
-            const timeMatch = text.match(/[A-Za-z]{3},\s+[A-Za-z]{3}\s+\d{1,2}\s+at\s+\d{1,2}:\d{2}\s+[AP]M/);
-            if (timeMatch && element.children.length === 0) { // 确保是叶子节点
-                return timeMatch[0];
+
+            // 查找时间
+            if (!foundTime) {
+                const timeMatch = text.match(/[A-Za-z]{3},\s+[A-Za-z]{3}\s+\d{1,2}\s+at\s+\d{1,2}:\d{2}\s+[AP]M/);
+                if (timeMatch && element.children.length === 0) {
+                    foundTime = timeMatch[0];
+                }
             }
+
+            // 查找运动类型（短文本，包含运动关键词）
+            if (!foundSport && element.children.length === 0) {
+                const trimmedText = text.trim();
+                const sportKeywords = ['Soccer', 'Basketball', 'Football', 'Tennis', 'Baseball',
+                    'Hockey', 'Volleyball', 'MMA', 'Boxing', 'eSports',
+                    'Snooker', 'Cricket', 'Rugby', 'Golf'];
+
+                for (const keyword of sportKeywords) {
+                    if (trimmedText === keyword || trimmedText.toLowerCase() === keyword.toLowerCase()) {
+                        foundSport = keyword;
+                        break;
+                    }
+                }
+            }
+
+            if (foundTime && foundSport) break;
         }
 
-        console.warn('[OddsJam Scraper] 未找到比赛时间');
+        if (foundTime) {
+            const result = {
+                time: foundTime,
+                sport: foundSport || 'Unknown'
+            };
+            console.log('[OddsJam Scraper] 提取成功 (方法2):', result);
+            return result;
+        }
+
+        console.warn('[OddsJam Scraper] 未找到比赛信息');
         return null;
     } catch (error) {
-        console.error('[OddsJam Scraper] 提取时间失败:', error);
+        console.error('[OddsJam Scraper] 提取信息失败:', error);
         return null;
     }
 }
@@ -147,16 +198,17 @@ document.addEventListener('click', (event) => {
     if (isOddsButton(target)) {
         console.log('[OddsJam Scraper] 检测到盘口点击');
 
-        // 提取比赛时间
-        const matchTime = extractMatchTime();
+        // 提取比赛信息
+        const matchInfo = extractMatchInfo();
 
-        if (matchTime) {
-            console.log('[OddsJam Scraper] 比赛时间:', matchTime);
+        if (matchInfo && matchInfo.time) {
+            console.log('[OddsJam Scraper] 比赛信息:', matchInfo);
 
             // 发送消息到background.js
             chrome.runtime.sendMessage({
                 type: 'ODDSJAM_CLICK',
-                matchTime: matchTime,
+                matchTime: matchInfo.time,
+                sportType: matchInfo.sport,
                 timestamp: new Date().toISOString()
             }, (response) => {
                 if (chrome.runtime.lastError) {
@@ -166,7 +218,7 @@ document.addEventListener('click', (event) => {
                 }
             });
         } else {
-            console.warn('[OddsJam Scraper] 未能提取比赛时间');
+            console.warn('[OddsJam Scraper] 未能提取比赛信息');
         }
     }
 }, true); // 使用捕获阶段

@@ -3,6 +3,9 @@
  * 处理OddsJam和皇冠之间的消息传递和标签页管理
  */
 
+// 导入运动类型映射器
+importScripts('utils/sport_mapper.js');
+
 console.log('[Background] Service Worker 已启动');
 
 // 皇冠网站域名列表
@@ -126,9 +129,13 @@ async function handleOddsJamClick(message, senderTab) {
     console.log('[Background] 处理OddsJam点击:', message);
 
     const matchTime = message.matchTime;
+    const sportType = message.sportType || 'Unknown';
+
     const category = calculateCategory(matchTime);
+    const mappedSport = mapSportType(sportType);
 
     console.log(`[Background] 计算结果 - 时间: ${matchTime}, 分类: ${category}`);
+    console.log(`[Background] 运动类型: ${sportType} → ${mappedSport}`);
 
     // 查找或创建皇冠标签页
     let crownTab = await findCrownTab();
@@ -140,11 +147,12 @@ async function handleOddsJamClick(message, senderTab) {
 
         console.log('[Background] 激活现有皇冠标签页');
 
-        // 发送点击指令
+        // 发送点击指令（包含时间分类和运动类型）
         setTimeout(() => {
             chrome.tabs.sendMessage(crownTab.id, {
                 type: 'CLICK_CATEGORY',
-                category: category
+                category: category,
+                sport: mappedSport
             }).catch(error => {
                 console.error('[Background] 发送消息到皇冠页面失败:', error);
             });
@@ -167,7 +175,8 @@ async function handleOddsJamClick(message, senderTab) {
                 setTimeout(() => {
                     chrome.tabs.sendMessage(tabId, {
                         type: 'CLICK_CATEGORY',
-                        category: category
+                        category: category,
+                        sport: mappedSport
                     }).catch(error => {
                         console.error('[Background] 发送消息到新皇冠页面失败:', error);
                     });

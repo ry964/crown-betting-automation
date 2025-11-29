@@ -138,11 +138,124 @@ function findCategoryButton(category) {
 }
 
 /**
- * 点击分类按钮
- * @param {string} category - 时间分类
+ * 查找运动图标
+ * @param {string} sportName - 运动名称 (Soccer/Basketball等)
+ * @returns {HTMLElement|null}
+ */
+function findSportIcon(sportName) {
+    try {
+        console.log(`[Crown Executor] 开始查找运动图标: ${sportName}`);
+
+        const sportLower = sportName.toLowerCase();
+
+        // 查找所有可见元素
+        const allElements = document.querySelectorAll('*');
+        const candidates = [];
+
+        for (const element of allElements) {
+            // 跳过不可见元素
+            if (element.offsetParent === null) continue;
+
+            const fullText = element.textContent.toLowerCase().trim();
+
+            // 只考虑短文本元素（避免大容器）
+            if (fullText.length > 30) continue;
+
+            // 检查是否匹配运动名称
+            if (fullText === sportLower ||
+                (fullText.length < 20 && fullText.includes(sportLower))) {
+
+                // 确保元素是可点击的
+                const isClickable =
+                    element.tagName === 'A' ||
+                    element.tagName === 'BUTTON' ||
+                    element.onclick ||
+                    element.getAttribute('href') ||
+                    window.getComputedStyle(element).cursor === 'pointer';
+
+                if (isClickable || element.parentElement?.tagName === 'A') {
+                    const targetElement = element.parentElement?.tagName === 'A' ? element.parentElement : element;
+                    candidates.push({
+                        element: targetElement,
+                        text: fullText
+                    });
+                    console.log(`[Crown Executor] 找到运动图标候选: "${fullText}"`, targetElement);
+                }
+            }
+        }
+
+        // 如果找到候选，选择最佳匹配
+        if (candidates.length > 0) {
+            // 优先选择精确匹配
+            const exactMatch = candidates.find(c => c.text === sportLower);
+            const selected = exactMatch || candidates[0];
+            console.log(`[Crown Executor] 选择运动图标:`, selected);
+            return selected.element;
+        }
+
+        console.warn('[Crown Executor] 未找到运动图标:', sportName);
+        return null;
+    } catch (error) {
+        console.error('[Crown Executor] 查找运动图标时出错:', error);
+        return null;
+    }
+}
+
+/**
+ * 点击运动图标
+ * @param {string} sportName - 运动名称
  * @param {number} retryCount - 重试次数
  */
-function clickCategory(category, retryCount = 0) {
+function clickSportIcon(sportName, retryCount = 0) {
+    const maxRetries = 3;
+    const retryDelay = 1000;
+
+    console.log(`[Crown Executor] 尝试点击运动图标: ${sportName} (尝试 ${retryCount + 1}/${maxRetries + 1})`);
+
+    const icon = findSportIcon(sportName);
+
+    if (icon) {
+        // 滚动到图标位置
+        icon.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+        // 稍作延迟后点击
+        setTimeout(() => {
+            icon.click();
+            console.log(`[Crown Executor] 已点击运动图标: ${sportName}`);
+            console.log('[Crown Executor] 点击序列完成 ✅');
+
+            // 发送成功消息
+            chrome.runtime.sendMessage({
+                type: 'SPORT_CLICK_SUCCESS',
+                sport: sportName
+            });
+        }, 300);
+    } else {
+        if (retryCount < maxRetries) {
+            console.log(`[Crown Executor] 未找到运动图标，${retryDelay}ms后重试...`);
+            setTimeout(() => {
+                clickSportIcon(sportName, retryCount + 1);
+            }, retryDelay);
+        } else {
+            console.error(`[Crown Executor] 多次尝试后仍未找到运动图标: ${sportName}`);
+
+            // 发送失败消息
+            chrome.runtime.sendMessage({
+                type: 'SPORT_CLICK_FAILED',
+                sport: sportName,
+                reason: '未找到对应的运动图标'
+            });
+        }
+    }
+}
+
+/**
+ * 点击分类按钮（并在成功后点击运动图标）
+ * @param {string} category - 时间分类
+ * @param {string} sportName - 运动名称（可选）
+ * @param {number} retryCount - 重试次数
+ */
+function clickCategory(category, sportName = null, retryCount = 0) {
     const maxRetries = 3;
     const retryDelay = 1000; // 1秒
 
@@ -164,12 +277,22 @@ function clickCategory(category, retryCount = 0) {
                 type: 'CLICK_SUCCESS',
                 category: category
             });
+
+            // 如果提供了运动类型，等待页面更新后点击运动图标
+            if (sportName) {
+                console.log(`[Crown Executor] 等待页面更新后点击运动图标: ${sportName}`);
+                setTimeout(() => {
+                    clickSportIcon(sportName);
+                }, 800); // 等待800ms让页面更新
+            } else {
+                console.log('[Crown Executor] 点击序列完成 ✅');
+            }
         }, 300);
     } else {
         if (retryCount < maxRetries) {
             console.log(`[Crown Executor] 未找到按钮，${retryDelay}ms后重试...`);
             setTimeout(() => {
-                clickCategory(category, retryCount + 1);
+                clickCategory(category, sportName, retryCount + 1);
             }, retryDelay);
         } else {
             console.error(`[Crown Executor] 多次尝试后仍未找到分类按钮: ${category}`);
@@ -192,18 +315,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     if (message.type === 'CLICK_CATEGORY') {
         const category = message.category;
-        console.log(`[Crown Executor] 接收到点击指令: ${category}`);
+        const sportName = message.sport;
+        console.log(`[Crown Executor] 接收到点击指令 - 分类: ${category}, 运动: ${sportName}`);
 
         // 等待DOM加载完成
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', () => {
-                clickCategory(category);
+                clickCategory(category, sportName);
             });
         } else {
-            clickCategory(category);
+            clickCategory(category, sportName);
         }
 
-        sendResponse({ status: 'processing', category: category });
+        sendResponse({ status: 'processing', category: category, sport: sportName });
     } else if (message.type === 'PING') {
         sendResponse({ status: 'active' });
     }
