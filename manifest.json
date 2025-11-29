@@ -1,0 +1,76 @@
+{
+    "manifest_version": 3,
+    "name": "OddsJam to Crown Navigator",
+    "version": "1.0.0",
+    "description": "自动从OddsJam跳转到皇冠网站并选择对应时间分类",
+    "permissions": [
+        "tabs",
+        "activeTab",
+        "storage",
+        "scripting"
+    ],
+    "host_permissions": [
+        "https://oddsjam.com/*",
+        "https://hga050.com/*",
+        "https://*.hga050.com/*",
+        "https://hga039.com/*",
+        "https://*.hga039.com/*",
+        "https://hga038.com/*",
+        "https://*.hga038.com/*",
+        "https://hga035.com/*",
+        "https://*.hga035.com/*",
+        "https://hga030.com/*",
+        "https://*.hga030.com/*",
+        "https://mos055.com/*",
+        "https://*.mos055.com/*",
+        "https://mos033.com/*",
+        "https://*.mos033.com/*",
+        "https://mos022.com/*",
+        "https://*.mos022.com/*",
+        "https://mos011.com/*",
+        "https://*.mos011.com/*"
+    ],
+    "background": {
+        "service_worker": "background.js"
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "https://oddsjam.com/*"
+            ],
+            "js": [
+                "scripts/oddsjam_scraper.js"
+            ],
+            "run_at": "document_end"
+        },
+        {
+            "matches": [
+                "https://hga050.com/*",
+                "https://*.hga050.com/*",
+                "https://hga039.com/*",
+                "https://*.hga039.com/*",
+                "https://hga038.com/*",
+                "https://*.hga038.com/*",
+                "https://hga035.com/*",
+                "https://*.hga035.com/*",
+                "https://hga030.com/*",
+                "https://*.hga030.com/*",
+                "https://mos055.com/*",
+                "https://*.mos055.com/*",
+                "https://mos033.com/*",
+                "https://*.mos033.com/*",
+                "https://mos022.com/*",
+                "https://*.mos022.com/*",
+                "https://mos011.com/*",
+                "https://*.mos011.com/*"
+            ],
+            "js": [
+                "scripts/crown_executor.js"
+            ],
+            "run_at": "document_end"
+        }
+    ],
+    "action": {
+        "default_title": "OddsJam to Crown Navigator"
+    }
+}
