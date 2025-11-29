@@ -269,6 +269,13 @@ document.addEventListener('click', (event) => {
 
         console.log('[OddsJam Scraper] 比赛信息:', matchInfo);
 
+        // 检查Chrome API是否可用
+        if (typeof chrome === 'undefined' || !chrome.runtime) {
+            console.error('[OddsJam Scraper] Chrome扩展API不可用，请刷新扩展');
+            alert('扩展需要重新加载！请到 chrome://extensions/ 刷新扩展后重试');
+            return;
+        }
+
         // 发送消息到 background script
         const message = {
             type: 'ODDSJAM_CLICK',
@@ -291,11 +298,13 @@ document.addEventListener('click', (event) => {
 }, true); // 使用捕获阶段
 
 // 监听来自background的消息
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    if (message.type === 'PING') {
-        sendResponse({ status: 'active' });
-    }
-    return true;
-});
+if (typeof chrome !== 'undefined' && chrome.runtime) {
+    chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+        if (message.type === 'PING') {
+            sendResponse({ status: 'active' });
+        }
+        return true;
+    });
+}
 
 console.log('[OddsJam Scraper] 事件监听器已设置');
