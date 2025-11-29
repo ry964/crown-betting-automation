@@ -13,77 +13,93 @@ function extractMatchInfo() {
     try {
         console.log('[OddsJam Scraper] 开始提取比赛信息...');
 
-        // 查找包含时间和运动信息的元素
-        // 格式：队名 + 时间 + 运动类型
-        // 例如："Aston Villa FC vs Wolverhampton Wanderers FC"
-        //       "Sun, Nov 30 at 10:05 PM"
-        //       "Soccer"
+        // 运动类型关键词（按长度排序，避免 Basketball 被 Football 误匹配）
+        const sportKeywords = [
+            'Basketball', 'American Football', 'Volleyball', 'Football',
+            'Baseball', 'Cricket', 'Snooker', 'Tennis', 'Hockey',
+            'Soccer', 'eSports', 'Boxing', 'Rugby', 'Golf', 'MMA'
+        ];
 
-        // 方法1: 通过页面标题区域查找
-        const titleSection = document.querySelector('h1, h2, [class*="title"], [class*="header"]');
-        if (titleSection) {
-            const container = titleSection.parentElement;
-            const allText = container?.textContent || '';
+        let foundTime = null;
+        let foundSport = null;
+        let timeElement = null;
 
-            // 提取时间
-            const timeMatch = allText.match(/[A-Za-z]{3},\s+[A-Za-z]{3}\s+\d{1,2}\s+at\s+\d{1,2}:\d{2}\s+[AP]M/);
+        // 方法1: 在所有元素中查找时间
+        const allElements = document.querySelectorAll('*');
 
-            // 提取运动类型（在时间之后的单独文本）
-            const sportKeywords = ['Soccer', 'Basketball', 'Football', 'Tennis', 'Baseball',
-                'Hockey', 'Volleyball', 'MMA', 'Boxing', 'eSports',
-                'Snooker', 'Cricket', 'Rugby', 'Golf'];
+        for (const element of allElements) {
+            if (foundTime) break;
 
-            let sportType = null;
-            for (const keyword of sportKeywords) {
-                const regex = new RegExp(`\\b${keyword}\\b`, 'i');
-                if (regex.test(allText)) {
-                    sportType = keyword;
+            const text = element.textContent;
+            const timeMatch = text.match(/[A-Za-z]{3},\s+[A-Za-z]{3}\s+\d{1,2}\s+at\s+\d{1,2}:\d{2}\s+[AP]M/);
+
+            if (timeMatch && element.children.length === 0) {
+                foundTime = timeMatch[0];
+                timeElement = element;
+                console.log('[OddsJam Scraper] 找到时间:', foundTime, '元素:', element);
+                break;
+            }
+        }
+
+        // 方法2: 在时间元素附近查找运动类型
+        if (timeElement) {
+            // 向上查找最多5层父元素
+            let searchScope = timeElement;
+            for (let i = 0; i < 5; i++) {
+                if (searchScope.parentElement) {
+                    searchScope = searchScope.parentElement;
+                } else {
                     break;
                 }
             }
 
-            if (timeMatch) {
-                const result = {
-                    time: timeMatch[0],
-                    sport: sportType || 'Unknown'
-                };
-                console.log('[OddsJam Scraper] 提取成功:', result);
-                return result;
-            }
-        }
+            console.log('[OddsJam Scraper] 在此范围搜索运动类型:', searchScope);
 
-        // 方法2: 全局搜索时间格式
-        const allElements = document.querySelectorAll('*');
-        let foundTime = null;
-        let foundSport = null;
+            // 在范围内查找运动类型
+            const scopeElements = searchScope.querySelectorAll('*');
 
-        for (const element of allElements) {
-            const text = element.textContent;
+            for (const element of scopeElements) {
+                if (foundSport) break;
 
-            // 查找时间
-            if (!foundTime) {
-                const timeMatch = text.match(/[A-Za-z]{3},\s+[A-Za-z]{3}\s+\d{1,2}\s+at\s+\d{1,2}:\d{2}\s+[AP]M/);
-                if (timeMatch && element.children.length === 0) {
-                    foundTime = timeMatch[0];
-                }
-            }
+                // 只看短文本的叶子节点
+                if (element.children.length > 0) continue;
 
-            // 查找运动类型（短文本，包含运动关键词）
-            if (!foundSport && element.children.length === 0) {
-                const trimmedText = text.trim();
-                const sportKeywords = ['Soccer', 'Basketball', 'Football', 'Tennis', 'Baseball',
-                    'Hockey', 'Volleyball', 'MMA', 'Boxing', 'eSports',
-                    'Snooker', 'Cricket', 'Rugby', 'Golf'];
+                const trimmedText = element.textContent.trim();
+                if (trimmedText.length > 50) continue;
 
+                // 按顺序匹配关键词（长的优先）
                 for (const keyword of sportKeywords) {
-                    if (trimmedText === keyword || trimmedText.toLowerCase() === keyword.toLowerCase()) {
+                    if (trimmedText === keyword ||
+                        trimmedText.toLowerCase() === keyword.toLowerCase() ||
+                        (trimmedText.length < 20 && trimmedText.toLowerCase().includes(keyword.toLowerCase()))) {
                         foundSport = keyword;
+                        console.log('[OddsJam Scraper] 找到运动类型:', foundSport, '文本:', trimmedText);
                         break;
                     }
                 }
             }
+        }
 
-            if (foundTime && foundSport) break;
+        // 方法3: 如果方法2失败，全局精确匹配
+        if (foundTime && !foundSport) {
+            console.log('[OddsJam Scraper] 方法2未找到运动类型，尝试全局精确匹配...');
+
+            for (const element of allElements) {
+                if (foundSport) break;
+
+                if (element.children.length > 0) continue;
+
+                const trimmedText = element.textContent.trim();
+
+                // 只匹配精确文本（避免误匹配）
+                for (const keyword of sportKeywords) {
+                    if (trimmedText === keyword || trimmedText.toLowerCase() === keyword.toLowerCase()) {
+                        foundSport = keyword;
+                        console.log('[OddsJam Scraper] 全局精确匹配到运动类型:', foundSport);
+                        break;
+                    }
+                }
+            }
         }
 
         if (foundTime) {
@@ -91,7 +107,7 @@ function extractMatchInfo() {
                 time: foundTime,
                 sport: foundSport || 'Unknown'
             };
-            console.log('[OddsJam Scraper] 提取成功 (方法2):', result);
+            console.log('[OddsJam Scraper] 提取成功:', result);
             return result;
         }
 
