@@ -263,14 +263,34 @@ function findMatch(team1, team2) {
         const allElements = document.querySelectorAll('*');
         const matchCandidates = [];
 
+        console.log(`[Crown Executor] 📊 开始扫描${allElements.length}个元素...`);
+        let checkedCount = 0;
+        let visibleCount = 0;
+
         for (const element of allElements) {
+            checkedCount++;
+
             // 跳过不可见元素
             if (element.offsetParent === null) continue;
+            visibleCount++;
 
             // 跳过子元素过多的容器  
             if (element.children.length > 10) continue;
 
             const text = element.textContent.toLowerCase();
+
+            // 只记录包含任一关键词的元素
+            let hasAnyKeyword = false;
+            for (const word of [...team1Words, ...team2Words]) {
+                if (word.length > 2 && text.includes(word)) {
+                    hasAnyKeyword = true;
+                    break;
+                }
+            }
+
+            if (hasAnyKeyword) {
+                console.log(`[Crown Executor] 📝 发现含关键词的元素: "${text.substring(0, 100)}..."`);
+            }
 
             // 检查是否包含两队的关键词
             let team1Matches = 0;
@@ -296,9 +316,11 @@ function findMatch(team1, team2) {
                     score: team1Matches + team2Matches
                 });
 
-                console.log(`[Crown Executor] 找到候选比赛 (得分${team1Matches + team2Matches}): "${text.substring(0, 80)}..."`, element);
+                console.log(`[Crown Executor] ✅ 找到候选比赛 (得分${team1Matches + team2Matches}): "${text.substring(0, 80)}..."`, element);
             }
         }
+
+        console.log(`[Crown Executor] 📊 统计: 检查${checkedCount}个元素, ${visibleCount}个可见, ${matchCandidates.length}个候选`);
 
         if (matchCandidates.length > 0) {
             // 按得分排序，选择最佳匹配
