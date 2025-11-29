@@ -228,6 +228,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     } else if (message.type === 'CLICK_FAILED') {
         console.error(`[Background] 点击失败: ${message.category}, 原因: ${message.reason}`);
         sendResponse({ status: 'acknowledged' });
+    } else if (message.type === 'MATCH_FOUND') {
+        console.log(`[Background] ✅ 找到比赛: ${message.team1} vs ${message.team2} (在 ${message.category})`);
+        sendResponse({ status: 'acknowledged' });
+    } else if (message.type === 'MATCH_NOT_FOUND') {
+        console.error(`[Background] ❌ 未找到比赛: ${message.team1} vs ${message.team2}`);
+        sendResponse({ status: 'acknowledged' });
+    } else if (message.type === 'SPORT_CLICK_SUCCESS') {
+        console.log('[Background] 运动图标点击成功');
+        sendResponse({ status: 'acknowledged' });
+    } else if (message.type === 'SPORT_CLICK_FAILED') {
+        console.error('[Background] 运动图标点击失败');
+        sendResponse({ status: 'acknowledged' });
     }
 
     return true;
