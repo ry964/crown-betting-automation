@@ -277,6 +277,7 @@ function findMatch(team1, team2) {
         console.log(`[Crown Executor] 📊 开始扫描${allElements.length}个元素...`);
         let checkedCount = 0;
         let visibleCount = 0;
+        let sampleCount = 0;
 
         for (const element of allElements) {
             checkedCount++;
@@ -290,10 +291,16 @@ function findMatch(team1, team2) {
 
             const text = element.textContent.toLowerCase();
 
-            // 只记录包含任一关键词的元素
+            // 采样调试：显示前10个有文本的可见元素
+            if (sampleCount < 10 && text.trim().length > 0 && text.length < 200) {
+                console.log(`[Crown Executor] 📄 样本${sampleCount + 1}: "${text.substring(0, 80)}..."`);
+                sampleCount++;
+            }
+
+            // 只记录包含任一关键词的元素（移除长度限制）
             let hasAnyKeyword = false;
             for (const word of [...team1Words, ...team2Words]) {
-                if (word.length > 2 && text.includes(word)) {
+                if (text.includes(word)) { // 移除 word.length > 2 限制
                     hasAnyKeyword = true;
                     break;
                 }
@@ -308,13 +315,13 @@ function findMatch(team1, team2) {
             let team2Matches = 0;
 
             for (const word of team1Words) {
-                if (word.length > 2 && text.includes(word)) {
+                if (text.includes(word)) { // 移除 word.length > 2 限制
                     team1Matches++;
                 }
             }
 
             for (const word of team2Words) {
-                if (word.length > 2 && text.includes(word)) {
+                if (text.includes(word)) { // 移除 word.length > 2 限制
                     team2Matches++;
                 }
             }
