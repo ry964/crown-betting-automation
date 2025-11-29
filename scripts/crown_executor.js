@@ -575,17 +575,51 @@ async function searchMatchAcrossCategories(initialCategory, sportName, team1, te
         // 3. 点击运动图标
         sportIcon.click();
         console.log(`[Crown Executor] ✅ 已点击运动图标: ${sportName}`);
-        console.log('[Crown Executor] ⏳ 等待2秒让内容加载...');
-        await new Promise(resolve => setTimeout(resolve, 2000)); // 增加到2秒
 
-        // 4. 尝试展开联赛
+        // 4. 轮询等待比赛列表加载
+        console.log('[Crown Executor] 🔄 等待比赛列表加载...');
+        let matchListLoaded = false;
+        let loadAttempts = 0;
+        const maxLoadAttempts = 10; // 最多等10秒
+        const loadCheckInterval = 1000; // 每1秒检查一次
+
+        while (loadAttempts < maxLoadAttempts) {
+            // 检查是否有比赛元素（不管是哪场）
+            const matchElements = document.querySelectorAll('[class*="match"], [class*="game"], [class*="event"], [id*="game"]');
+
+            // 过滤可见元素
+            const visibleMatches = Array.from(matchElements).filter(el => el.offsetParent !== null);
+
+            if (visibleMatches.length > 0) {
+                console.log(`[Crown Executor] ✅ 比赛列表已加载 (发现${visibleMatches.length}场比赛)`);
+                matchListLoaded = true;
+                break;
+            }
+
+            loadAttempts++;
+            if (loadAttempts < maxLoadAttempts) {
+                console.log(`[Crown Executor] ⏳ 比赛列表未加载，1秒后重试 (${loadAttempts}/${maxLoadAttempts})...`);
+                await new Promise(resolve => setTimeout(resolve, loadCheckInterval));
+            }
+        }
+
+        if (!matchListLoaded) {
+            console.warn(`[Crown Executor] ⚠️ 等待${maxLoadAttempts}秒后，比赛列表仍未加载`);
+            console.log('[Crown Executor] 跳过本分类，尝试下一个...');
+            continue; // 跳到下一个时间分类
+        }
+
+        console.log('[Crown Executor] ⏳ 比赛列表加载完成，再等1秒确保内容稳定...');
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        // 5. 尝试展开联赛
         if (league && league !== 'Unknown') {
             await expandLeague(league);
             console.log('[Crown Executor] ⏳ 联赛展开后等待0.5秒...');
             await new Promise(resolve => setTimeout(resolve, 500));
         }
 
-        // 5. 搜索比赛
+        // 6. 搜索比赛
         const matchElement = findMatch(team1, team2);
 
         if (matchElement) {
