@@ -395,6 +395,61 @@ async function expandLeague(leagueName) {
         for (const candidate of candidates) {
             const element = candidate.element;
 
+            // 检查联赛是否已经展开
+            let isExpanded = false;
+
+            // 方法1: 检查元素本身和父元素的class
+            const checkExpanded = (el) => {
+                if (!el) return false;
+                const className = el.className || '';
+                const classLower = className.toString().toLowerCase();
+
+                // 常见的展开状态class: open, opened, expanded, active, on
+                // 常见的折叠状态class: closed, collapsed, off
+                if (classLower.includes('open') ||
+                    classLower.includes('expand') ||
+                    classLower.includes('active') ||
+                    classLower.includes(' on')) {
+                    return true;
+                }
+                return false;
+            };
+
+            isExpanded = checkExpanded(element);
+
+            // 也检查父元素（最多3层）
+            if (!isExpanded) {
+                let parent = element.parentElement;
+                for (let i = 0; i < 3 && parent; i++) {
+                    if (checkExpanded(parent)) {
+                        isExpanded = true;
+                        console.log(`[Crown Executor] 父元素${i + 1}层显示已展开状态`);
+                        break;
+                    }
+                    parent = parent.parentElement;
+                }
+            }
+
+            // 方法2: 检查附近是否有比赛元素（已展开的联赛下面应该有比赛）
+            if (!isExpanded) {
+                // 查找父容器中是否有比赛相关元素
+                const container = element.closest('div[id*="league"], div[class*="league"]') || element.parentElement;
+                if (container) {
+                    const matchElements = container.querySelectorAll('[class*="match"], [class*="game"], [id*="match"], [id*="game"]');
+                    if (matchElements.length > 0) {
+                        isExpanded = true;
+                        console.log(`[Crown Executor] 发现${matchElements.length}个比赛元素，联赛应该已展开`);
+                    }
+                }
+            }
+
+            if (isExpanded) {
+                console.log(`[Crown Executor] ✅ 联赛 "${candidate.text}" 已经展开，跳过点击`);
+                return true; // 已展开，无需点击
+            }
+
+            console.log(`[Crown Executor] 📍 联赛 "${candidate.text}" 似乎是折叠的，尝试展开`);
+
             // 检查元素本身或其父元素是否可点击
             let clickableElement = null;
 
@@ -437,7 +492,7 @@ async function expandLeague(leagueName) {
             }
         }
 
-        console.log('[Crown Executor] ⚠️ 未找到可点击的联赛元素');
+        console.log('[Crown Executor] ⚠️ 未找到需要展开的联赛元素（可能已全部展开）');
         return false;
     } catch (error) {
         console.error('[Crown Executor] 展开联赛时出错:', error);
