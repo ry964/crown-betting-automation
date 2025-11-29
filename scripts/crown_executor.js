@@ -780,7 +780,7 @@ async function searchMatchAcrossCategories(initialCategory, sportName, team1, te
 
             // 展开所有折叠的联赛（查找类似"ENGLISH PREMIER LEAGUE"的标题）
             const leagueHeaders = document.querySelectorAll('*');
-            const expandedCount = 0;
+            let expandedCount = 0;
 
             for (const header of leagueHeaders) {
                 // 跳过不可见元素
@@ -799,22 +799,26 @@ async function searchMatchAcrossCategories(initialCategory, sportName, team1, te
                     try {
                         header.click();
                         console.log(`[Crown Executor] 🔓 点击展开: "${text.substring(0, 50)}"`);
-                        await new Promise(resolve => setTimeout(resolve, 300)); // 等待展开
+                        expandedCount++;
+                        await new Promise(resolve => setTimeout(resolve, 200)); // 等待展开
                     } catch (e) {
                         // 忽略点击错误
                     }
                 }
             }
 
-            console.log('[Crown Executor] ⏳ 所有联赛展开后，等待1秒...');
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            console.log(`[Crown Executor] 📊 共展开${expandedCount}个联赛`);
 
-            // 滚回顶部并再次搜索
+            // 立即滚回顶部
             window.scrollTo(0, 0);
             console.log('[Crown Executor] ⬆️ 滚回顶部');
-            await new Promise(resolve => setTimeout(resolve, 500));
+
+            // 滚回顶部后等待内容稳定
+            console.log('[Crown Executor] ⏳ 等待2秒让展开的内容加载...');
+            await new Promise(resolve => setTimeout(resolve, 2000));
 
             // 第二次搜索
+            console.log('[Crown Executor] 🔍 第二次搜索比赛...');
             matchElement = findMatch(team1, team2);
         }
 
