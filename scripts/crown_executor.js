@@ -542,29 +542,50 @@ async function searchMatchAcrossCategories(initialCategory, sportName, team1, te
         if (categoryButton) {
             categoryButton.click();
             console.log(`[Crown Executor] ✅ 已点击分类: ${category}`);
-            await new Promise(resolve => setTimeout(resolve, 800)); // 等待页面加载
+            console.log('[Crown Executor] ⏳ 等待1.5秒让页面加载...');
+            await new Promise(resolve => setTimeout(resolve, 1500)); // 增加到1.5秒
         } else {
             console.warn(`[Crown Executor] ⚠️ 未找到分类按钮: ${category}`);
             continue;
         }
 
-        // 2. 点击运动图标
-        const sportIcon = findSportIcon(sportName);
-        if (sportIcon) {
-            sportIcon.click();
-            console.log(`[Crown Executor] ✅ 已点击运动图标: ${sportName}`);
-            await new Promise(resolve => setTimeout(resolve, 1000)); // 等待页面加载
-        } else {
-            console.warn(`[Crown Executor] ⚠️ 未找到运动图标: ${sportName}`);
+        // 2. 轮询等待运动图标出现
+        console.log('[Crown Executor] 🔄 开始轮询等待运动图标出现...');
+        let sportIcon = null;
+        let attempts = 0;
+        const maxAttempts = 10; // 最多尝试10次
+        const pollInterval = 500; // 每500ms检查一次
+
+        while (attempts < maxAttempts) {
+            sportIcon = findSportIcon(sportName);
+            if (sportIcon) {
+                console.log(`[Crown Executor] ✅ 找到运动图标 (尝试 ${attempts + 1}/${maxAttempts})`);
+                break;
+            }
+            attempts++;
+            console.log(`[Crown Executor] ⏳ 运动图标未出现，${pollInterval}ms后重试 (${attempts}/${maxAttempts})...`);
+            await new Promise(resolve => setTimeout(resolve, pollInterval));
+        }
+
+        if (!sportIcon) {
+            console.warn(`[Crown Executor] ⚠️ 轮询${maxAttempts}次后仍未找到运动图标: ${sportName}`);
             continue;
         }
 
-        // 3. 尝试展开联赛
+        // 3. 点击运动图标
+        sportIcon.click();
+        console.log(`[Crown Executor] ✅ 已点击运动图标: ${sportName}`);
+        console.log('[Crown Executor] ⏳ 等待2秒让内容加载...');
+        await new Promise(resolve => setTimeout(resolve, 2000)); // 增加到2秒
+
+        // 4. 尝试展开联赛
         if (league && league !== 'Unknown') {
             await expandLeague(league);
+            console.log('[Crown Executor] ⏳ 联赛展开后等待0.5秒...');
+            await new Promise(resolve => setTimeout(resolve, 500));
         }
 
-        // 4. 搜索比赛
+        // 5. 搜索比赛
         const matchElement = findMatch(team1, team2);
 
         if (matchElement) {
