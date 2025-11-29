@@ -6,8 +6,8 @@
 console.log('[OddsJam Scraper] 脚本已加载');
 
 /**
- * 提取比赛信息（时间和运动类型）
- * @returns {Object|null} - {time: string, sport: string} 或 null
+ * 提取比赛信息（时间、运动类型、队名）
+ * @returns {Object|null} - {time: string, sport: string, team1: string, team2: string} 或 null
  */
 function extractMatchInfo() {
     try {
@@ -22,9 +22,26 @@ function extractMatchInfo() {
 
         let foundTime = null;
         let foundSport = null;
+        let foundTeam1 = null;
+        let foundTeam2 = null;
         let timeElement = null;
 
-        // 方法1: 在所有元素中查找时间
+        // 方法1: 提取队名（从 h1 或 h2 标签）
+        const titleElements = document.querySelectorAll('h1, h2');
+        for (const titleEl of titleElements) {
+            const titleText = titleEl.textContent.trim();
+
+            // 匹配 "Team1 vs Team2" 格式
+            const vsMatch = titleText.match(/^(.+?)\s+vs\s+(.+?)$/i);
+            if (vsMatch) {
+                foundTeam1 = vsMatch[1].trim();
+                foundTeam2 = vsMatch[2].trim();
+                console.log('[OddsJam Scraper] 找到队名:', foundTeam1, 'vs', foundTeam2);
+                break;
+            }
+        }
+
+        // 方法2: 在所有元素中查找时间
         const allElements = document.querySelectorAll('*');
 
         for (const element of allElements) {
@@ -41,7 +58,7 @@ function extractMatchInfo() {
             }
         }
 
-        // 方法2: 在时间元素附近查找运动类型
+        // 方法3: 在时间元素附近查找运动类型
         if (timeElement) {
             // 向上查找最多5层父元素
             let searchScope = timeElement;
@@ -80,9 +97,9 @@ function extractMatchInfo() {
             }
         }
 
-        // 方法3: 如果方法2失败，全局精确匹配
+        // 方法4: 如果方法3失败，全局精确匹配运动类型
         if (foundTime && !foundSport) {
-            console.log('[OddsJam Scraper] 方法2未找到运动类型，尝试全局精确匹配...');
+            console.log('[OddsJam Scraper] 方法3未找到运动类型，尝试全局精确匹配...');
 
             for (const element of allElements) {
                 if (foundSport) break;
@@ -105,7 +122,9 @@ function extractMatchInfo() {
         if (foundTime) {
             const result = {
                 time: foundTime,
-                sport: foundSport || 'Unknown'
+                sport: foundSport || 'Unknown',
+                team1: foundTeam1 || 'Unknown',
+                team2: foundTeam2 || 'Unknown'
             };
             console.log('[OddsJam Scraper] 提取成功:', result);
             return result;
@@ -217,25 +236,30 @@ document.addEventListener('click', (event) => {
         // 提取比赛信息
         const matchInfo = extractMatchInfo();
 
-        if (matchInfo && matchInfo.time) {
-            console.log('[OddsJam Scraper] 比赛信息:', matchInfo);
-
-            // 发送消息到background.js
-            chrome.runtime.sendMessage({
-                type: 'ODDSJAM_CLICK',
-                matchTime: matchInfo.time,
-                sportType: matchInfo.sport,
-                timestamp: new Date().toISOString()
-            }, (response) => {
-                if (chrome.runtime.lastError) {
-                    console.error('[OddsJam Scraper] 发送消息失败:', chrome.runtime.lastError);
-                } else {
-                    console.log('[OddsJam Scraper] 消息已发送，响应:', response);
-                }
-            });
-        } else {
-            console.warn('[OddsJam Scraper] 未能提取比赛信息');
+        if (!matchInfo) {
+            console.error('[OddsJam Scraper] 未能提取比赛信息');
+            return;
         }
+
+        console.log('[OddsJam Scraper] 比赛信息:', matchInfo);
+
+        // 发送消息到 background script
+        const message = {
+            type: 'ODDSJAM_CLICK',
+            matchTime: matchInfo.time,
+            sportType: matchInfo.sport,
+            team1: matchInfo.team1,
+            team2: matchInfo.team2,
+            timestamp: new Date().toISOString()
+        };
+
+        chrome.runtime.sendMessage(message, (response) => {
+            if (chrome.runtime.lastError) {
+                console.error('[OddsJam Scraper] 消息发送失败:', chrome.runtime.lastError.message);
+            } else {
+                console.log('[OddsJam Scraper] 消息已发送，响应:', response);
+            }
+        });
     }
 }, true); // 使用捕获阶段
 

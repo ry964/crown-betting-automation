@@ -130,12 +130,15 @@ async function handleOddsJamClick(message, senderTab) {
 
     const matchTime = message.matchTime;
     const sportType = message.sportType || 'Unknown';
+    const team1 = message.team1 || 'Unknown';
+    const team2 = message.team2 || 'Unknown';
 
     const category = calculateCategory(matchTime);
     const mappedSport = mapSportType(sportType);
 
     console.log(`[Background] 计算结果 - 时间: ${matchTime}, 分类: ${category}`);
     console.log(`[Background] 运动类型: ${sportType} → ${mappedSport}`);
+    console.log(`[Background] 队名: ${team1} vs ${team2}`);
 
     // 查找或创建皇冠标签页
     let crownTab = await findCrownTab();
@@ -147,12 +150,14 @@ async function handleOddsJamClick(message, senderTab) {
 
         console.log('[Background] 激活现有皇冠标签页');
 
-        // 发送点击指令（包含时间分类和运动类型）
+        // 发送点击指令（包含时间分类、运动类型和队名）
         setTimeout(() => {
             chrome.tabs.sendMessage(crownTab.id, {
                 type: 'CLICK_CATEGORY',
                 category: category,
-                sport: mappedSport
+                sport: mappedSport,
+                team1: team1,
+                team2: team2
             }).catch(error => {
                 console.error('[Background] 发送消息到皇冠页面失败:', error);
             });
@@ -176,7 +181,9 @@ async function handleOddsJamClick(message, senderTab) {
                     chrome.tabs.sendMessage(tabId, {
                         type: 'CLICK_CATEGORY',
                         category: category,
-                        sport: mappedSport
+                        sport: mappedSport,
+                        team1: team1,
+                        team2: team2
                     }).catch(error => {
                         console.error('[Background] 发送消息到新皇冠页面失败:', error);
                     });
