@@ -224,15 +224,26 @@ function findSportIcon(sportName) {
  * @returns {string} - 标准化后的队名
  */
 function normalizeTeamName(teamName) {
-    if (!teamName || teamName === 'Unknown') return '';
+    if (!teamName || teamName === 'Unknown') return [];
 
     let normalized = teamName.toLowerCase().trim();
 
     // 移除常见后缀
-    const suffixes = ['fc', 'football club', 'united', 'city', 'town', 'athletic', 'warriors', 'celtics', 'timberwolves'];
+    const suffixes = [
+        'fc', 'football club', 'united', 'city', 'town', 'athletic',
+        'warriors', 'celtics', 'timberwolves', 'afc', 'sfc', 'cfc',
+        'hotspur', 'rovers', 'wanderers', 'albion', 'county'
+    ];
+
+    // 移除后缀
+    for (const suffix of suffixes) {
+        // 移除结尾的后缀（如 "Brentford FC" → "Brentford"）
+        const pattern = new RegExp(`\\s+${suffix}$`, 'i');
+        normalized = normalized.replace(pattern, '');
+    }
 
     // 提取关键词（保留主要名称）
-    const words = normalized.split(/\s+/);
+    const words = normalized.split(/\s+/).filter(w => w.length > 0);
 
     // 返回所有单词用于匹配
     return words;
