@@ -163,6 +163,7 @@ async function handleOddsJamClick(message, senderTab) {
 
         // 发送点击指令（包含时间分类、运动类型、队名和联赛）
         setTimeout(() => {
+            console.log('[Background] 📤 准备发送消息到皇冠标签页:', crownTab.id);
             chrome.tabs.sendMessage(crownTab.id, {
                 type: 'CLICK_CATEGORY',
                 category: category,
@@ -170,8 +171,13 @@ async function handleOddsJamClick(message, senderTab) {
                 team1: team1,
                 team2: team2,
                 league: league
-            }).catch(error => {
-                console.error('[Background] 发送消息到皇冠页面失败:', error);
+            }, (response) => {
+                if (chrome.runtime.lastError) {
+                    console.error('[Background] ❌ 发送消息失败:', chrome.runtime.lastError.message);
+                    console.error('[Background] 可能原因: crown_executor.js未加载或页面未准备好');
+                } else {
+                    console.log('[Background] ✅ 消息已发送，响应:', response);
+                }
             });
         }, 500);
     } else {
@@ -190,6 +196,7 @@ async function handleOddsJamClick(message, senderTab) {
         const listener = (tabId, changeInfo) => {
             if (tabId === crownTab.id && changeInfo.status === 'complete') {
                 setTimeout(() => {
+                    console.log('[Background] 📤 准备发送消息到新皇冠标签页:', tabId);
                     chrome.tabs.sendMessage(tabId, {
                         type: 'CLICK_CATEGORY',
                         category: category,
@@ -197,8 +204,12 @@ async function handleOddsJamClick(message, senderTab) {
                         team1: team1,
                         team2: team2,
                         league: league
-                    }).catch(error => {
-                        console.error('[Background] 发送消息到新皇冠页面失败:', error);
+                    }, (response) => {
+                        if (chrome.runtime.lastError) {
+                            console.error('[Background] ❌ 发送消息到新标签页失败:', chrome.runtime.lastError.message);
+                        } else {
+                            console.log('[Background] ✅ 新标签页消息已发送，响应:', response);
+                        }
                     });
                 }, 1000);
 
