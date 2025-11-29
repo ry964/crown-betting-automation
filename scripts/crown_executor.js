@@ -767,8 +767,56 @@ async function searchMatchAcrossCategories(initialCategory, sportName, team1, te
             await new Promise(resolve => setTimeout(resolve, 500));
         }
 
-        // 6. 搜索比赛
-        const matchElement = findMatch(team1, team2);
+        // 6. 第一次搜索比赛
+        let matchElement = findMatch(team1, team2);
+
+        if (!matchElement) {
+            console.log('[Crown Executor] 📜 第一次未找到，尝试滚动并展开所有联赛...');
+
+            // 滚动到页面底部
+            window.scrollTo(0, document.body.scrollHeight);
+            console.log('[Crown Executor] ⬇️ 已滚动到页面底部');
+            await new Promise(resolve => setTimeout(resolve, 1000)); // 等待加载
+
+            // 展开所有折叠的联赛（查找类似"ENGLISH PREMIER LEAGUE"的标题）
+            const leagueHeaders = document.querySelectorAll('*');
+            const expandedCount = 0;
+
+            for (const header of leagueHeaders) {
+                // 跳过不可见元素
+                if (header.offsetParent === null) continue;
+
+                const text = header.textContent.trim().toUpperCase();
+                const hasLeagueName = text.includes('LEAGUE') ||
+                    text.includes('PREMIER') ||
+                    text.includes('SERIE') ||
+                    text.includes('LIGA') ||
+                    text.includes('DIVISION');
+
+                // 检查是否是短文本（联赛标题通常很短）
+                if (hasLeagueName && text.length < 100 && header.children.length < 5) {
+                    // 尝试点击展开
+                    try {
+                        header.click();
+                        console.log(`[Crown Executor] 🔓 点击展开: "${text.substring(0, 50)}"`);
+                        await new Promise(resolve => setTimeout(resolve, 300)); // 等待展开
+                    } catch (e) {
+                        // 忽略点击错误
+                    }
+                }
+            }
+
+            console.log('[Crown Executor] ⏳ 所有联赛展开后，等待1秒...');
+            await new Promise(resolve => setTimeout(resolve, 1000));
+
+            // 滚回顶部并再次搜索
+            window.scrollTo(0, 0);
+            console.log('[Crown Executor] ⬆️ 滚回顶部');
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            // 第二次搜索
+            matchElement = findMatch(team1, team2);
+        }
 
         if (matchElement) {
             console.log(`[Crown Executor] 🎉 在 ${category} 找到比赛！`);
