@@ -202,48 +202,49 @@ function findSportIcon(sportName) {
 }
 
 /**
- * 点击运动图标
+ * 点击运动图标（带轮询重试）
  * @param {string} sportName - 运动名称
- * @param {number} retryCount - 重试次数
+ * @param {number} attemptCount - 当前尝试次数
+ * @param {number} maxAttempts - 最大尝试次数
  */
-function clickSportIcon(sportName, retryCount = 0) {
-    const maxRetries = 3;
-    const retryDelay = 1000;
+function clickSportIcon(sportName, attemptCount = 0, maxAttempts = 10) {
+    const retryInterval = 300; // 每300ms尝试一次
 
-    console.log(`[Crown Executor] 尝试点击运动图标: ${sportName} (尝试 ${retryCount + 1}/${maxRetries + 1})`);
+    console.log(`[Crown Executor] 尝试查找运动图标: ${sportName} (尝试 ${attemptCount + 1}/${maxAttempts})`);
 
     const icon = findSportIcon(sportName);
 
     if (icon) {
-        // 滚动到图标位置
+        // 找到了，点击
         icon.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
-        // 稍作延迟后点击
         setTimeout(() => {
             icon.click();
-            console.log(`[Crown Executor] 已点击运动图标: ${sportName}`);
-            console.log('[Crown Executor] 点击序列完成 ✅');
+            console.log(`[Crown Executor] ✅ 已点击运动图标: ${sportName}`);
+            console.log('[Crown Executor] 🎉 点击序列完成');
 
             // 发送成功消息
             chrome.runtime.sendMessage({
                 type: 'SPORT_CLICK_SUCCESS',
                 sport: sportName
             });
-        }, 300);
+        }, 200);
     } else {
-        if (retryCount < maxRetries) {
-            console.log(`[Crown Executor] 未找到运动图标，${retryDelay}ms后重试...`);
+        // 未找到，继续重试
+        if (attemptCount < maxAttempts - 1) {
+            console.log(`[Crown Executor] ⏳ 未找到运动图标，${retryInterval}ms后重试... (${attemptCount + 1}/${maxAttempts})`);
             setTimeout(() => {
-                clickSportIcon(sportName, retryCount + 1);
-            }, retryDelay);
+                clickSportIcon(sportName, attemptCount + 1, maxAttempts);
+            }, retryInterval);
         } else {
-            console.error(`[Crown Executor] 多次尝试后仍未找到运动图标: ${sportName}`);
+            console.error(`[Crown Executor] ❌ 经过${maxAttempts}次尝试后仍未找到运动图标: ${sportName}`);
+            console.log('[Crown Executor] 💡 可能原因：该时间分类下不显示此运动类型');
 
             // 发送失败消息
             chrome.runtime.sendMessage({
                 type: 'SPORT_CLICK_FAILED',
                 sport: sportName,
-                reason: '未找到对应的运动图标'
+                reason: `经过${maxAttempts}次尝试未找到运动图标`
             });
         }
     }
@@ -270,7 +271,7 @@ function clickCategory(category, sportName = null, retryCount = 0) {
         // 稍作延迟后点击
         setTimeout(() => {
             button.click();
-            console.log(`[Crown Executor] 已点击分类: ${category}`);
+            console.log(`[Crown Executor] ✅ 已点击分类: ${category}`);
 
             // 发送成功消息
             chrome.runtime.sendMessage({
@@ -278,14 +279,17 @@ function clickCategory(category, sportName = null, retryCount = 0) {
                 category: category
             });
 
-            // 如果提供了运动类型，等待页面更新后点击运动图标
+            // 如果提供了运动类型，开始轮询点击运动图标
             if (sportName) {
-                console.log(`[Crown Executor] 等待页面更新后点击运动图标: ${sportName}`);
+                console.log(`[Crown Executor] 🔄 开始轮询查找运动图标: ${sportName}`);
+                console.log(`[Crown Executor] 📋 将每300ms尝试一次，最多尝试10次（共3秒）`);
+
+                // 等待500ms让页面开始更新，然后开始轮询
                 setTimeout(() => {
-                    clickSportIcon(sportName);
-                }, 800); // 等待800ms让页面更新
+                    clickSportIcon(sportName, 0, 10);
+                }, 500);
             } else {
-                console.log('[Crown Executor] 点击序列完成 ✅');
+                console.log('[Crown Executor] 🎉 点击序列完成');
             }
         }, 300);
     } else {
