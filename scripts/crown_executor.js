@@ -219,6 +219,158 @@ function findSportIcon(sportName) {
 }
 
 /**
+ * 标准化队名（移除常见后缀，便于模糊匹配）
+ * @param {string} teamName - 队名
+ * @returns {string} - 标准化后的队名
+ */
+function normalizeTeamName(teamName) {
+    if (!teamName || teamName === 'Unknown') return '';
+
+    let normalized = teamName.toLowerCase().trim();
+
+    // 移除常见后缀
+    const suffixes = ['fc', 'football club', 'united', 'city', 'town', 'athletic', 'warriors', 'celtics', 'timberwolves'];
+
+    // 提取关键词（保留主要名称）
+    const words = normalized.split(/\s+/);
+
+    // 返回所有单词用于匹配
+    return words;
+}
+
+/**
+ * 在页面查找比赛
+ * @param {string} team1 - 队名1
+ * @param {string} team2 - 队名2  
+ * @returns {HTMLElement|null} - 找到的比赛元素
+ */
+function findMatch(team1, team2) {
+    try {
+        console.log(`[Crown Executor] 🔍 开始搜索比赛: ${team1} vs ${team2}`);
+
+        if (team1 === 'Unknown' || team2 === 'Unknown') {
+            console.warn('[Crown Executor] 队名未知，无法搜索');
+            return null;
+        }
+
+        // 标准化队名
+        const team1Words = normalizeTeamName(team1);
+        const team2Words = normalizeTeamName(team2);
+
+        console.log('[Crown Executor] 搜索关键词:', team1Words, 'vs', team2Words);
+
+        // 查找所有文本元素
+        const allElements = document.querySelectorAll('*');
+        const matchCandidates = [];
+
+        for (const element of allElements) {
+            // 跳过不可见元素
+            if (element.offsetParent === null) continue;
+
+            // 跳过子元素过多的容器  
+            if (element.children.length > 10) continue;
+
+            const text = element.textContent.toLowerCase();
+
+            // 检查是否包含两队的关键词
+            let team1Matches = 0;
+            let team2Matches = 0;
+
+            for (const word of team1Words) {
+                if (word.length > 2 && text.includes(word)) {
+                    team1Matches++;
+                }
+            }
+
+            for (const word of team2Words) {
+                if (word.length > 2 && text.includes(word)) {
+                    team2Matches++;
+                }
+            }
+
+            // 如果同时包含两队的关键词
+            if (team1Matches > 0 && team2Matches > 0) {
+                matchCandidates.push({
+                    element: element,
+                    text: text.substring(0, 100), // 只保留前100字符用于日志
+                    score: team1Matches + team2Matches
+                });
+
+                console.log(`[Crown Executor] 找到候选比赛 (得分${team1Matches + team2Matches}): "${text.substring(0, 80)}..."`, element);
+            }
+        }
+
+        if (matchCandidates.length > 0) {
+            // 按得分排序，选择最佳匹配
+            matchCandidates.sort((a, b) => b.score - a.score);
+            const best = matchCandidates[0];
+
+            console.log(`[Crown Executor] ✅ 找到比赛！得分: ${best.score}`, best.element);
+            return best.element;
+        }
+
+        console.warn('[Crown Executor] ❌ 未找到匹配的比赛');
+        return null;
+    } catch (error) {
+        console.error('[Crown Executor] 搜索比赛时出错:', error);
+        return null;
+    }
+}
+
+/**
+ * 展开联赛
+ * @param {string} leagueName - 联赛名称 (如 "NBA")
+ * @returns {Promise<boolean>} - 是否成功展开
+ */
+async function expandLeague(leagueName) {
+    try {
+        console.log(`[Crown Executor] 🔓 尝试展开联赛: ${leagueName}`);
+
+        if (!leagueName || leagueName === 'Unknown') {
+            console.log('[Crown Executor] 联赛未知，跳过展开');
+            return false;
+        }
+
+        const leagueLower = leagueName.toLowerCase();
+        const allElements = document.querySelectorAll('*');
+
+        for (const element of allElements) {
+            if (element.offsetParent === null) continue;
+
+            const text = element.textContent.toLowerCase().trim();
+
+            // 匹配联赛名称
+            if (text === leagueLower || text.includes(leagueLower)) {
+                // 检查是否可点击
+                const isClickable =
+                    element.tagName === 'DIV' ||
+                    element.tagName === 'A' ||
+                    element.onclick ||
+                    window.getComputedStyle(element).cursor === 'pointer';
+
+                if (isClickable && text.length < 50) {
+                    console.log(`[Crown Executor] 找到联赛元素: "${text}"`, element);
+
+                    // 点击展开
+                    element.click();
+                    console.log('[Crown Executor] ✅ 已点击展开联赛');
+
+                    // 等待加载
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    return true;
+                }
+            }
+        }
+
+        console.log('[Crown Executor] 未找到可展开的联赛元素');
+        return false;
+    } catch (error) {
+        console.error('[Crown Executor] 展开联赛时出错:', error);
+        return false;
+    }
+}
+
+/**
  * 点击运动图标（带轮询重试）
  * @param {string} sportName - 运动名称
  * @param {number} attemptCount - 当前尝试次数
@@ -331,24 +483,31 @@ function clickCategory(category, sportName = null, retryCount = 0) {
 /**
  * 监听来自background的消息
  */
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
     console.log('[Crown Executor] 收到消息:', message);
 
     if (message.type === 'CLICK_CATEGORY') {
         const category = message.category;
         const sportName = message.sport;
-        console.log(`[Crown Executor] 接收到点击指令 - 分类: ${category}, 运动: ${sportName}`);
+        const team1 = message.team1;
+        const team2 = message.team2;
+        const league = message.league;
+
+        console.log(`[Crown Executor] 接收到点击指令:`);
+        console.log(`  分类: ${category}`);
+        console.log(`  运动: ${sportName}`);
+        console.log(`  队名: ${team1} vs ${team2}`);
+        console.log(`  联赛: ${league}`);
 
         // 等待DOM加载完成
         if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', () => {
-                clickCategory(category, sportName);
+            await new Promise(resolve => {
+                document.addEventListener('DOMContentLoaded', resolve);
             });
-        } else {
-            clickCategory(category, sportName);
         }
 
-        sendResponse({ status: 'processing', category: category, sport: sportName });
+        // 开始跨时间分类搜索
+        await searchMatchAcrossCategories(category, sportName, team1, team2, league);
     } else if (message.type === 'PING') {
         sendResponse({ status: 'active' });
     }
@@ -356,6 +515,90 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
 });
 
+/**
+ * 跨时间分类搜索比赛
+ * @param {string} initialCategory - 初步判断的时间分类
+ * @param {string} sportName - 运动类型
+ * @param {string} team1 - 队名1
+ * @param {string} team2 - 队名2
+ * @param {string} league - 联赛名称
+ */
+async function searchMatchAcrossCategories(initialCategory, sportName, team1, team2, league) {
+    console.log('[Crown Executor] 🎯 开始跨时间分类搜索比赛');
+
+    // 定义搜索顺序：先尝试初步判断的分类，再尝试其他分类
+    const categories = ['Today', 'Soon', 'Early', 'In-Play'];
+
+    // 将初步判断的分类放在最前面
+    const searchOrder = [initialCategory, ...categories.filter(c => c !== initialCategory)];
+
+    console.log('[Crown Executor] 搜索顺序:', searchOrder);
+
+    for (const category of searchOrder) {
+        console.log(`\n[Crown Executor] 📂 尝试在 ${category} 分类中搜索...`);
+
+        // 1. 点击时间分类
+        const categoryButton = findCategoryButton(category);
+        if (categoryButton) {
+            categoryButton.click();
+            console.log(`[Crown Executor] ✅ 已点击分类: ${category}`);
+            await new Promise(resolve => setTimeout(resolve, 800)); // 等待页面加载
+        } else {
+            console.warn(`[Crown Executor] ⚠️ 未找到分类按钮: ${category}`);
+            continue;
+        }
+
+        // 2. 点击运动图标
+        const sportIcon = findSportIcon(sportName);
+        if (sportIcon) {
+            sportIcon.click();
+            console.log(`[Crown Executor] ✅ 已点击运动图标: ${sportName}`);
+            await new Promise(resolve => setTimeout(resolve, 1000)); // 等待页面加载
+        } else {
+            console.warn(`[Crown Executor] ⚠️ 未找到运动图标: ${sportName}`);
+            continue;
+        }
+
+        // 3. 尝试展开联赛
+        if (league && league !== 'Unknown') {
+            await expandLeague(league);
+        }
+
+        // 4. 搜索比赛
+        const matchElement = findMatch(team1, team2);
+
+        if (matchElement) {
+            console.log(`[Crown Executor] 🎉 在 ${category} 找到比赛！`);
+
+            // 点击进入比赛详情
+            matchElement.click();
+            console.log('[Crown Executor] ✅ 已点击进入比赛');
+
+            // 发送成功消息
+            chrome.runtime.sendMessage({
+                type: 'MATCH_FOUND',
+                category: category,
+                team1: team1,
+                team2: team2
+            });
+
+            return; // 成功找到，结束搜索
+        } else {
+            console.log(`[Crown Executor] ❌ 在 ${category} 未找到比赛`);
+        }
+    }
+
+    // 所有分类都搜索完毕，仍未找到
+    console.error('[Crown Executor] ❌ 搜索完所有时间分类，未找到比赛');
+
+    chrome.runtime.sendMessage({
+        type: 'MATCH_NOT_FOUND',
+        team1: team1,
+        team2: team2
+    });
+}
+
+console.log('[Crown Executor] 脚本已加载');
 console.log('[Crown Executor] 消息监听器已设置');
 
 // 页面加载完成后通知background
