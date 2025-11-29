@@ -159,27 +159,42 @@ function findSportIcon(sportName) {
             const fullText = element.textContent.toLowerCase().trim();
 
             // 只考虑短文本元素（避免大容器）
-            if (fullText.length > 30) continue;
+            if (fullText.length > 50) continue;
 
-            // 检查是否匹配运动名称
-            if (fullText === sportLower ||
-                (fullText.length < 20 && fullText.includes(sportLower))) {
+            // 更宽松的匹配：精确/开头/包含
+            const isExactMatch = fullText === sportLower;
+            const isStartMatch = fullText.startsWith(sportLower);
+            const isIncludeMatch = fullText.length < 25 && fullText.includes(sportLower);
 
-                // 确保元素是可点击的
+            if (isExactMatch || isStartMatch || isIncludeMatch) {
+                // 放宽可点击性检查：包括DIV和SPAN
                 const isClickable =
                     element.tagName === 'A' ||
                     element.tagName === 'BUTTON' ||
+                    element.tagName === 'DIV' ||
+                    element.tagName === 'SPAN' ||
                     element.onclick ||
                     element.getAttribute('href') ||
+                    element.getAttribute('onclick') ||
                     window.getComputedStyle(element).cursor === 'pointer';
 
-                if (isClickable || element.parentElement?.tagName === 'A') {
-                    const targetElement = element.parentElement?.tagName === 'A' ? element.parentElement : element;
+                // 或者父元素可点击
+                const parentClickable =
+                    element.parentElement?.tagName === 'A' ||
+                    element.parentElement?.tagName === 'BUTTON' ||
+                    element.parentElement?.tagName === 'DIV' ||
+                    element.parentElement.onclick;
+
+                if (isClickable || parentClickable) {
+                    const targetElement = parentClickable ? element.parentElement : element;
+
                     candidates.push({
                         element: targetElement,
-                        text: fullText
+                        text: fullText,
+                        matchType: isExactMatch ? 'exact' : (isStartMatch ? 'starts' : 'includes')
                     });
-                    console.log(`[Crown Executor] 找到运动图标候选: "${fullText}"`, targetElement);
+
+                    console.log(`[Crown Executor] 找到运动图标候选: "${fullText}" (${candidates[candidates.length - 1].matchType})`, targetElement);
                 }
             }
         }
@@ -187,9 +202,11 @@ function findSportIcon(sportName) {
         // 如果找到候选，选择最佳匹配
         if (candidates.length > 0) {
             // 优先选择精确匹配
-            const exactMatch = candidates.find(c => c.text === sportLower);
-            const selected = exactMatch || candidates[0];
-            console.log(`[Crown Executor] 选择运动图标:`, selected);
+            const exactMatch = candidates.find(c => c.matchType === 'exact');
+            const startsMatch = candidates.find(c => c.matchType === 'starts');
+            const selected = exactMatch || startsMatch || candidates[0];
+
+            console.log(`[Crown Executor] 选择运动图标 (${selected.matchType}):`, selected);
             return selected.element;
         }
 
