@@ -7,6 +7,7 @@
 const SPORT_MAPPING = {
     // 直接对应
     'soccer': 'Soccer',
+    'football': 'Soccer',  // ⚽ OddsJam uses "Football" for soccer (British naming)
     'basketball': 'Basketball',
     'tennis': 'Tennis',
     'volleyball': 'Volleyball',
@@ -15,8 +16,8 @@ const SPORT_MAPPING = {
     'e-sports': 'eSports',
 
     // 映射到 Other Sports
-    'football': 'Other Sports',  // 美式足球
-    'american football': 'Other Sports',
+    'american football': 'Other Sports',  // 🏈 美式足球
+    'nfl': 'Other Sports',
     'baseball': 'Other Sports',
     'hockey': 'Other Sports',
     'ice hockey': 'Other Sports',
