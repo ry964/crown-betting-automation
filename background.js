@@ -31,9 +31,18 @@ function isCrownDomain(url) {
         const urlObj = new URL(url);
         const hostname = urlObj.hostname.toLowerCase();
 
-        return CROWN_DOMAINS.some(domain =>
-            hostname.includes(domain) || hostname.endsWith(domain)
+        // 移除 www. 前缀
+        const cleanHostname = hostname.replace(/^www\./, '');
+
+        const isMatch = CROWN_DOMAINS.some(domain =>
+            cleanHostname === domain || cleanHostname.endsWith('.' + domain)
         );
+
+        if (isMatch) {
+            console.log(`[Background] 匹配到皇冠域名: ${hostname}`);
+        }
+
+        return isMatch;
     } catch (error) {
         return false;
     }
@@ -132,6 +141,7 @@ async function handleOddsJamClick(message, senderTab) {
     const sportType = message.sportType || 'Unknown';
     const team1 = message.team1 || 'Unknown';
     const team2 = message.team2 || 'Unknown';
+    const league = message.league || 'Unknown';
 
     const category = calculateCategory(matchTime);
     const mappedSport = mapSportType(sportType);
@@ -139,6 +149,7 @@ async function handleOddsJamClick(message, senderTab) {
     console.log(`[Background] 计算结果 - 时间: ${matchTime}, 分类: ${category}`);
     console.log(`[Background] 运动类型: ${sportType} → ${mappedSport}`);
     console.log(`[Background] 队名: ${team1} vs ${team2}`);
+    console.log(`[Background] 联赛: ${league}`);
 
     // 查找或创建皇冠标签页
     let crownTab = await findCrownTab();
@@ -150,14 +161,15 @@ async function handleOddsJamClick(message, senderTab) {
 
         console.log('[Background] 激活现有皇冠标签页');
 
-        // 发送点击指令（包含时间分类、运动类型和队名）
+        // 发送点击指令（包含时间分类、运动类型、队名和联赛）
         setTimeout(() => {
             chrome.tabs.sendMessage(crownTab.id, {
                 type: 'CLICK_CATEGORY',
                 category: category,
                 sport: mappedSport,
                 team1: team1,
-                team2: team2
+                team2: team2,
+                league: league
             }).catch(error => {
                 console.error('[Background] 发送消息到皇冠页面失败:', error);
             });
@@ -183,7 +195,8 @@ async function handleOddsJamClick(message, senderTab) {
                         category: category,
                         sport: mappedSport,
                         team1: team1,
-                        team2: team2
+                        team2: team2,
+                        league: league
                     }).catch(error => {
                         console.error('[Background] 发送消息到新皇冠页面失败:', error);
                     });

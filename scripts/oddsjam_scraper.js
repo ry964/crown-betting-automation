@@ -58,7 +58,10 @@ function extractMatchInfo() {
             }
         }
 
-        // 方法3: 在时间元素附近查找运动类型
+
+        // 方法3: 在时间元素附近查找运动类型和联赛
+        let foundLeague = null;
+
         if (timeElement) {
             // 向上查找最多5层父元素
             let searchScope = timeElement;
@@ -70,30 +73,52 @@ function extractMatchInfo() {
                 }
             }
 
-            console.log('[OddsJam Scraper] 在此范围搜索运动类型:', searchScope);
+            console.log('[OddsJam Scraper] 在此范围搜索运动类型和联赛:', searchScope);
 
-            // 在范围内查找运动类型
+            // 在范围内查找运动类型和联赛
             const scopeElements = searchScope.querySelectorAll('*');
 
-            for (const element of scopeElements) {
-                if (foundSport) break;
+            // 常见联赛关键词
+            const leagueKeywords = [
+                'NBA', 'NFL', 'WNBA', 'MLB', 'NHL', 'MLS', 'NCAA',
+                'Premier League', 'Champions League', 'La Liga', 'Serie A', 'Bundesliga',
+                'Ligue 1', 'UEFA', 'EPL', 'FA Cup', 'EFL', 'Championship',
+                'ATP', 'WTA', 'Grand Slam', 'Davis Cup', 'BJK Cup',
+                'Euroleague', 'EuroBasket', 'FIBA', 'ACB'
+            ];
 
+            for (const element of scopeElements) {
                 // 只看短文本的叶子节点
                 if (element.children.length > 0) continue;
 
                 const trimmedText = element.textContent.trim();
                 if (trimmedText.length > 50) continue;
 
-                // 按顺序匹配关键词（长的优先）
-                for (const keyword of sportKeywords) {
-                    if (trimmedText === keyword ||
-                        trimmedText.toLowerCase() === keyword.toLowerCase() ||
-                        (trimmedText.length < 20 && trimmedText.toLowerCase().includes(keyword.toLowerCase()))) {
-                        foundSport = keyword;
-                        console.log('[OddsJam Scraper] 找到运动类型:', foundSport, '文本:', trimmedText);
-                        break;
+                // 查找运动类型
+                if (!foundSport) {
+                    for (const keyword of sportKeywords) {
+                        if (trimmedText === keyword ||
+                            trimmedText.toLowerCase() === keyword.toLowerCase() ||
+                            (trimmedText.length < 20 && trimmedText.toLowerCase().includes(keyword.toLowerCase()))) {
+                            foundSport = keyword;
+                            console.log('[OddsJam Scraper] 找到运动类型:', foundSport, '文本:', trimmedText);
+                            break;
+                        }
                     }
                 }
+
+                // 查找联赛
+                if (!foundLeague) {
+                    for (const league of leagueKeywords) {
+                        if (trimmedText === league || trimmedText.toLowerCase() === league.toLowerCase()) {
+                            foundLeague = league;
+                            console.log('[OddsJam Scraper] 找到联赛:', foundLeague, '文本:', trimmedText);
+                            break;
+                        }
+                    }
+                }
+
+                if (foundSport && foundLeague) break;
             }
         }
 
@@ -124,7 +149,8 @@ function extractMatchInfo() {
                 time: foundTime,
                 sport: foundSport || 'Unknown',
                 team1: foundTeam1 || 'Unknown',
-                team2: foundTeam2 || 'Unknown'
+                team2: foundTeam2 || 'Unknown',
+                league: foundLeague || 'Unknown'
             };
             console.log('[OddsJam Scraper] 提取成功:', result);
             return result;
@@ -250,6 +276,7 @@ document.addEventListener('click', (event) => {
             sportType: matchInfo.sport,
             team1: matchInfo.team1,
             team2: matchInfo.team2,
+            league: matchInfo.league,
             timestamp: new Date().toISOString()
         };
 
