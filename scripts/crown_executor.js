@@ -826,82 +826,77 @@ async function detectAndNavigateDateSelection(team1, team2, matchTime) {
 }
 
 /**
- * 边展开边搜索比赛（并发优化）
+ * 边展开边搜索比赛（简化策略）
  * @param {string} team1 - 队伍1名称
  * @param {string} team2 - 队伍2名称
  * @returns {Promise<HTMLElement|null>} - 找到的比赛元素
  */
 async function expandAndSearchConcurrently(team1, team2) {
-    console.log('[Crown Executor] 🔄 开始并发展开和搜索...');
+    console.log('[Crown Executor] 🔄 开始智能搜索...');
 
-    // 先滚动到底部加载所有联赛
+    // ✅ 第一步：先搜索（很多联赛可能已经展开了）
+    console.log('[Crown Executor] 🔍 第一次搜索（当前可见比赛）...');
+    let matchElement = findMatch(team1, team2);
+
+    if (matchElement) {
+        console.log('[Crown Executor] ✅ 在已展开的联赛中找到比赛！');
+        return matchElement;
+    }
+
+    console.log('[Crown Executor] ⚠️ 未找到比赛，尝试展开所有折叠的联赛...');
+
+    // ✅ 第二步：滚动到底部，加载所有联赛
     window.scrollTo(0, document.body.scrollHeight);
     await new Promise(resolve => setTimeout(resolve, 1000));
 
-    // 收集所有可能的联赛标题
-    const allHeaders = [];
+    // ✅ 第三步：找到所有可能是联赛标题的元素并点击展开
     const leagueHeaders = document.querySelectorAll('*');
+    let clickedCount = 0;
 
     for (const header of leagueHeaders) {
         if (header.offsetParent === null) continue;
 
         const text = header.textContent.trim().toUpperCase();
 
-        const hasLeagueName = text.includes('LEAGUE') ||
+        // 检查是否是联赛标题
+        const isLeagueHeader = text.includes('LEAGUE') ||
             text.includes('PREMIER') ||
             text.includes('SERIE') ||
             text.includes('LIGA') ||
             text.includes('DIVISION') ||
-            text.includes('CHAMPIONSHIP') ||
-            text.includes('ITALY') ||
-            text.includes('SPAIN') ||
-            text.includes('GERMANY') ||
-            text.includes('FRANCE') ||
-            text.includes('ENGLAND');
+            text.includes('CHAMPIONSHIP');
 
-        if (hasLeagueName && text.length < 100 && text.length > 3) {
-            allHeaders.push({ element: header, text: text.substring(0, 50) });
-        }
-    }
-
-    console.log(`[Crown Executor] 📋 找到${allHeaders.length}个可展开的联赛`);
-
-    // ✅ 批量展开：每展开5个联赛就搜索一次
-    const batchSize = 5;
-    for (let i = 0; i < allHeaders.length; i += batchSize) {
-        const batch = allHeaders.slice(i, i + batchSize);
-
-        // 展开这一批联赛
-        for (let j = 0; j < batch.length; j++) {
-            const { element, text } = batch[j];
+        if (isLeagueHeader && text.length < 100 && text.length > 3) {
             try {
-                element.click();
-                console.log(`[Crown Executor] 🔓 ${i + j + 1}/${allHeaders.length} 展开: "${text}"`);
-                await new Promise(resolve => setTimeout(resolve, 150));
+                header.click();
+                clickedCount++;
+                console.log(`[Crown Executor] 🔓 ${clickedCount} 点击: "${text.substring(0, 40)}"`);
+
+                // 每点击5个就搜索一次
+                if (clickedCount % 5 === 0) {
+                    await new Promise(resolve => setTimeout(resolve, 300));
+                    matchElement = findMatch(team1, team2);
+                    if (matchElement) {
+                        console.log(`[Crown Executor] ✅ 展开${clickedCount}个后找到比赛！`);
+                        window.scrollTo(0, 0);
+                        return matchElement;
+                    }
+                }
+
+                await new Promise(resolve => setTimeout(resolve, 100));
             } catch (e) {
                 // 忽略点击错误
             }
         }
-
-        // ✅ 每批展开后立即搜索
-        console.log(`[Crown Executor] 🔍 批次${Math.floor(i / batchSize) + 1}展开后搜索...`);
-        const matchElement = findMatch(team1, team2);
-
-        if (matchElement) {
-            console.log(`[Crown Executor] ✅ 在第${Math.floor(i / batchSize) + 1}批次找到比赛！`);
-            window.scrollTo(0, 0); // 滚回顶部
-            return matchElement;
-        }
-
-        // 每批之间短暂等待
-        await new Promise(resolve => setTimeout(resolve, 300));
     }
 
-    // 滚回顶部
-    window.scrollTo(0, 0);
-    console.log('[Crown Executor] ⬆️ 已展开所有联赛并滚回顶部');
+    console.log(`[Crown Executor] 📊 共点击${clickedCount}个联赛`);
 
-    // 最后再搜索一次
+    // ✅ 第四步：滚回顶部，最后搜索一次
+    window.scrollTo(0, 0);
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    console.log('[Crown Executor] 🔍 最终搜索...');
     return findMatch(team1, team2);
 }
 
