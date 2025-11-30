@@ -1202,13 +1202,14 @@ async function searchMatchAcrossCategories(sportName, team1, team2, league, matc
 }
 
 /**
- * Placeholder for normalizeTeamName function.
- * This function is assumed to exist elsewhere in the codebase or needs to be defined.
- * For the purpose of this edit, a basic implementation is provided to ensure syntactical correctness.
- * In a real scenario, this would contain logic to clean and standardize team names.
+ * 规范化队名，用于匹配
+ * @param {string} name - 队名
+ * @returns {Array<string>} - 关键词数组
  */
 function normalizeTeamName(name) {
-    return name.toLowerCase().split(/\s+/);
+    return name.toLowerCase()
+        .split(/\s+/)
+        .filter(word => word.length >= 3); // ✅ 过滤掉<3字符的词（如"us", "fc"）
 }
 
 /**
