@@ -15,6 +15,7 @@ const CROWN_DOMAINS = [
     'hga038.com',
     'hga035.com',
     'hga030.com',
+    'mos100.com', // ✅ 添加用户的域名
     'mos055.com',
     'mos033.com',
     'mos022.com',
