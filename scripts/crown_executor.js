@@ -917,6 +917,8 @@ async function searchMatchAcrossCategories(sportName, team1, team2, league, matc
                 if (header.offsetParent === null) continue;
 
                 const text = header.textContent.trim().toUpperCase();
+
+                // ✅ 扩展关键词，包含Italy
                 const hasLeagueName = text.includes('LEAGUE') ||
                     text.includes('PREMIER') ||
                     text.includes('SERIE') ||
@@ -927,10 +929,15 @@ async function searchMatchAcrossCategories(sportName, team1, team2, league, matc
                     text.includes('UFC') ||
                     text.includes('BOXING') ||
                     text.includes('CUP') ||
-                    text.includes('TOURNAMENT');
+                    text.includes('TOURNAMENT') ||
+                    text.includes('ITALY') ||  // ✅ 新增
+                    text.includes('SPAIN') ||  // ✅ 新增
+                    text.includes('GERMANY') ||  // ✅ 新增
+                    text.includes('FRANCE') ||  // ✅ 新增
+                    text.includes('ENGLAND');  // ✅ 新增
 
-                // 检查是否是短文本（联赛标题通常很短）
-                if (hasLeagueName && text.length < 100 && header.children.length < 5) {
+                // ✅ 放宽限制：移除children.length检查，只保留文本长度检查
+                if (hasLeagueName && text.length < 100 && text.length > 3) {
                     // 尝试点击展开
                     try {
                         header.click();

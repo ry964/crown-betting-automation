@@ -170,7 +170,8 @@ async function handleOddsJamClick(message, senderTab) {
                 sport: mappedSport,
                 team1: team1,
                 team2: team2,
-                league: league
+                league: league,
+                time: matchTime  // ✅ 添加时间字段用于日期选择
             }, (response) => {
                 if (chrome.runtime.lastError) {
                     console.error('[Background] ❌ 发送消息失败:', chrome.runtime.lastError.message);
