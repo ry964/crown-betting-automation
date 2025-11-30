@@ -65,6 +65,7 @@
                 "https://*.mos011.com/*"
             ],
             "js": [
+                "utils/date_parser.js",
                 "scripts/crown_executor.js"
             ],
             "run_at": "document_end"

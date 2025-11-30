@@ -664,6 +664,83 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
 });
 
 /**
+ * 检测并处理日期选择页面（足球等运动需要选择日期）
+ * @param {string} team1 - 队伍1名称
+ * @param {string} team2 - 队伍2名称 
+ * @returns {Promise<boolean>} - 是否处理了日期选择
+ */
+async function detectAndNavigateDateSelection(team1, team2) {
+    try {
+        console.log('[Crown Executor] 🔍 检测日期选择页面...');
+
+        // 检测是否有日期按钮（ALL DATES, SUN 30 NOV等）
+        const allElements = document.querySelectorAll('*');
+        let hasDateButtons = false;
+
+        for (const el of allElements) {
+            if (el.offsetParent === null) continue; // 跳过不可见元素
+
+            const text = el.textContent.trim().toUpperCase();
+
+            // 检查是否包含"ALL DATES"或日期格式（如"SUN 30 NOV"）
+            if (text === 'ALL DATES' || /^(MON|TUE|WED|THU|FRI|SAT|SUN)\s+\d+\s+(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)/.test(text)) {
+                hasDateButtons = true;
+                console.log('[Crown Executor] 🗓️ 检测到日期选择页面');
+                break;
+            }
+        }
+
+        if (!hasDateButtons) {
+            return false; // 没有日期选择页面
+        }
+
+        // 从OddsJam消息中获取比赛时间（需要从全局变量或重新从消息获取）
+        // 这里我们需要从消息中传入matchTime
+        // 暂时先点击"ALL DATES"或第一个可见日期
+
+        console.log('[Crown Executor] 📅 查找"ALL DATES"或"ALL MATCHES"按钮...');
+
+        // 尝试点击"ALL DATES"或包含"ALL MATCHES"的按钮
+        for (const el of allElements) {
+            if (el.offsetParent === null) continue;
+
+            const text = el.textContent.trim().toUpperCase();
+
+            // 优先查找"SUN 30 NOV ALL MATCHES"这样的按钮
+            if (text.includes('ALL MATCHES') && text.length < 100) {
+                console.log(`[Crown Executor] 📋 找到"ALL MATCHES"按钮: "${text}"`);
+                el.click();
+                console.log('[Crown Executor] ✅ 已点击"ALL MATCHES"按钮');
+                await new Promise(resolve => setTimeout(resolve, 1500)); // 等待页面加载
+                return true;
+            }
+        }
+
+        // 如果没找到ALL MATCHES，尝试点击ALL DATES
+        for (const el of allElements) {
+            if (el.offsetParent === null) continue;
+
+            const text = el.textContent.trim().toUpperCase();
+
+            if (text === 'ALL DATES' && el.children.length < 5) {
+                console.log('[Crown Executor] 📅 找到"ALL DATES"按钮');
+                el.click();
+                console.log('[Crown Executor] ✅ 已点击"ALL DATES"按钮');
+                await new Promise(resolve => setTimeout(resolve, 1500)); // 等待页面加载
+                return true;
+            }
+        }
+
+        console.log('[Crown Executor] ⚠️ 未找到合适的日期按钮');
+        return false;
+
+    } catch (error) {
+        console.error('[Crown Executor] ❌ 日期选择导航出错:', error);
+        return false;
+    }
+}
+
+/**
  * 跨时间分类搜索比赛
  * @param {string} initialCategory - 初步判断的时间分类
  * @param {string} sportName - 运动类型
@@ -674,8 +751,8 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
 async function searchMatchAcrossCategories(initialCategory, sportName, team1, team2, league) {
     console.log('[Crown Executor] 🎯 开始跨时间分类搜索比赛');
 
-    // 定义搜索顺序：先尝试初步判断的分类，再尝试其他分类
-    const categories = ['Today', 'Soon', 'Early', 'In-Play'];
+    // 定义搜索顺序：只搜索Today和Early（用户确认这两个分类足够）
+    const categories = ['Today', 'Early'];
 
     // 将初步判断的分类放在最前面
     const searchOrder = [initialCategory, ...categories.filter(c => c !== initialCategory)];
@@ -723,6 +800,17 @@ async function searchMatchAcrossCategories(initialCategory, sportName, team1, te
         // 3. 点击运动图标
         sportIcon.click();
         console.log(`[Crown Executor] ✅ 已点击运动图标: ${sportName}`);
+
+        // 3.5. 检测并处理日期选择页面（足球等运动需要）
+        await new Promise(resolve => setTimeout(resolve, 1500)); // 等待页面响应
+
+        const hasDateSelection = await detectAndNavigateDateSelection(team1, team2);
+
+        if (hasDateSelection) {
+            console.log('[Crown Executor] ✅ 已完成日期选择导航');
+        } else {
+            console.log('[Crown Executor] ℹ️ 未检测到日期选择页面，继续正常流程');
+        }
 
         // 4. 轮询等待比赛列表加载
         console.log('[Crown Executor] 🔄 等待比赛列表加载...');
