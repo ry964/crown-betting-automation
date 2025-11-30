@@ -791,7 +791,13 @@ async function searchMatchAcrossCategories(initialCategory, sportName, team1, te
                     text.includes('PREMIER') ||
                     text.includes('SERIE') ||
                     text.includes('LIGA') ||
-                    text.includes('DIVISION');
+                    text.includes('DIVISION') ||
+                    text.includes('CHAMPIONSHIP') ||
+                    text.includes('FIGHTING') ||
+                    text.includes('UFC') ||
+                    text.includes('BOXING') ||
+                    text.includes('CUP') ||
+                    text.includes('TOURNAMENT');
 
                 // 检查是否是短文本（联赛标题通常很短）
                 if (hasLeagueName && text.length < 100 && header.children.length < 5) {
