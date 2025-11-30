@@ -1040,6 +1040,20 @@ async function clickMatchToEnterDetails(matchElement, team1, team2) {
             if (el.offsetParent === null) continue; // 跳过不可见元素
 
             const text = el.textContent.toLowerCase();
+            const upperText = el.textContent.toUpperCase();
+
+            // ✅ 新增：排除联赛标题（包含LEAGUE、DIVISION等关键词的元素）
+            const isLeagueHeader = upperText.includes('LEAGUE') ||
+                upperText.includes('DIVISION') ||
+                upperText.includes('PREMIER') ||
+                upperText.includes('SERIE') ||
+                upperText.includes('LIGA') ||
+                upperText.includes('BUNDESLIGA') ||
+                upperText.includes('CHAMPIONSHIP');
+
+            if (isLeagueHeader) {
+                continue; // ✅ 跳过联赛标题
+            }
 
             // 检查是否包含队名关键词
             let hasTeamName = false;
