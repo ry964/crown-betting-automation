@@ -1018,6 +1018,39 @@ function normalizeTeamName(name) {
 }
 
 /**
+ * 计算文本与队名的相似度得分
+ * @param {string} text - 元素文本
+ * @param {Array} team1Words - 队伍1关键词
+ * @param {Array} team2Words - 队伍2关键词
+ * @returns {number} - 得分（越高越像队名）
+ */
+function calculateTeamNameScore(text, team1Words, team2Words) {
+    const lowerText = text.toLowerCase();
+    let score = 0;
+
+    // 1. 文本越短，得分越高（队名通常比联赛标题短）
+    score += Math.max(0, 100 - text.length);
+
+    // 2. 包含的队名关键词越多，得分越高
+    const allTeamWords = [...team1Words, ...team2Words];
+    for (const word of allTeamWords) {
+        if (lowerText.includes(word)) {
+            score += 50; // 每个匹配+50分
+        }
+    }
+
+    // 3. 如果包含联赛关键词，大幅减分
+    const leagueKeywords = ['league', 'division', 'serie', 'liga', 'bundesliga', 'championship', 'premier'];
+    for (const keyword of leagueKeywords) {
+        if (lowerText.includes(keyword)) {
+            score -= 100; // 每个联赛关键词-100分
+        }
+    }
+
+    return score;
+}
+
+/**
  * 点击比赛元素中的队名进入详情页
  * @param {HTMLElement} matchElement - 比赛元素
  * @param {string} team1 - 队伍1名称
@@ -1082,7 +1115,8 @@ async function clickMatchToEnterDetails(matchElement, team1, team2) {
                 if (isClickable || el.parentElement?.onclick || el.parentElement?.tagName === 'A') {
                     candidates.push({
                         element: el,
-                        text: text.substring(0, 50)
+                        text: text.substring(0, 50),
+                        fullText: text
                     });
                 }
             }
@@ -1090,7 +1124,17 @@ async function clickMatchToEnterDetails(matchElement, team1, team2) {
 
         console.log(`[Crown Executor] 找到${candidates.length}个可点击的队名候选`);
 
-        // 尝试点击第一个候选（通常是主队或客队名）
+        // ✅ 智能排序：优先选择更像队名的候选
+        if (candidates.length > 1) {
+            candidates.sort((a, b) => {
+                // 计算每个候选的"队名相似度"得分
+                const scoreA = calculateTeamNameScore(a.fullText, team1Words, team2Words);
+                const scoreB = calculateTeamNameScore(b.fullText, team1Words, team2Words); // Corrected: should use team1Words and team2Words for both
+                return scoreB - scoreA; // 得分高的排前面
+            });
+        }
+
+        // 尝试点击第一个候选（得分最高的）
         if (candidates.length > 0) {
             const candidate = candidates[0];
             console.log(`[Crown Executor] 🖱️ 点击队名: "${candidate.text}"`, candidate.element);
