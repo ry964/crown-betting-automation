@@ -786,6 +786,66 @@ async function detectAndNavigateDateSelection(team1, team2, matchTime) {
 }
 
 /**
+ * 展开所有折叠的联赛
+ * @returns {Promise<number>} - 展开的联赛数量
+ */
+async function expandAllLeagues() {
+    // 滚动到页面底部以加载所有联赛
+    window.scrollTo(0, document.body.scrollHeight);
+    console.log('[Crown Executor] ⬇️ 已滚动到页面底部');
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    // 查找所有可能的联赛标题并点击展开
+    const leagueHeaders = document.querySelectorAll('*');
+    let expandedCount = 0;
+
+    for (const header of leagueHeaders) {
+        // 跳过不可见元素
+        if (header.offsetParent === null) continue;
+
+        const text = header.textContent.trim().toUpperCase();
+
+        // 检查是否包含联赛相关关键词
+        const hasLeagueName = text.includes('LEAGUE') ||
+            text.includes('PREMIER') ||
+            text.includes('SERIE') ||
+            text.includes('LIGA') ||
+            text.includes('DIVISION') ||
+            text.includes('CHAMPIONSHIP') ||
+            text.includes('FIGHTING') ||
+            text.includes('UFC') ||
+            text.includes('BOXING') ||
+            text.includes('CUP') ||
+            text.includes('TOURNAMENT') ||
+            text.includes('ITALY') ||
+            text.includes('SPAIN') ||
+            text.includes('GERMANY') ||
+            text.includes('FRANCE') ||
+            text.includes('ENGLAND');
+
+        // 文本长度合理且包含联赛关键词
+        if (hasLeagueName && text.length < 100 && text.length > 3) {
+            try {
+                header.click();
+                console.log(`[Crown Executor] 🔓 点击展开: "${text.substring(0, 50)}"`);
+                expandedCount++;
+                await new Promise(resolve => setTimeout(resolve, 200));
+            } catch (e) {
+                // 忽略点击错误
+            }
+        }
+    }
+
+    console.log(`[Crown Executor] 📊 共展开${expandedCount}个联赛`);
+
+    // 滚回顶部
+    window.scrollTo(0, 0);
+    console.log('[Crown Executor] ⬆️ 滚回顶部');
+
+    return expandedCount;
+}
+
+/**
  * 跨时间分类搜索比赛
  * @param {string} sportName - 运动类型
  * @param {string} team1 - 队名1
@@ -796,8 +856,8 @@ async function detectAndNavigateDateSelection(team1, team2, matchTime) {
 async function searchMatchAcrossCategories(sportName, team1, team2, league, matchTime) {
     console.log('[Crown Executor] 🎯 开始跨时间分类搜索比赛');
 
-    // ✅ 固定搜索顺序：Early → Today（最优路径）
-    const searchOrder = ['Early', 'Today'];
+    // ✅ 用户要求的搜索顺序：Today（展开所有）→ Early（按日期）
+    const searchOrder = ['Today', 'Early'];
 
     console.log('[Crown Executor] 🔄 固定搜索顺序:', searchOrder);
 
@@ -890,14 +950,22 @@ async function searchMatchAcrossCategories(sportName, team1, team2, league, matc
         console.log('[Crown Executor] ⏳ 比赛列表加载完成，再等1秒确保内容稳定...');
         await new Promise(resolve => setTimeout(resolve, 1000));
 
-        // 5. 尝试展开联赛
+        // 5. ✅ 如果是Today分类，先展开所有联赛
+        if (category === 'Today') {
+            console.log('[Crown Executor] 📂 Today分类：展开所有折叠的联赛...');
+            await expandAllLeagues();
+            console.log('[Crown Executor] ⏳ 展开后等待2秒让内容加载...');
+            await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+
+        // 6. 尝试展开特定联赛（如果提供了联赛名）
         if (league && league !== 'Unknown') {
             await expandLeague(league);
             console.log('[Crown Executor] ⏳ 联赛展开后等待0.5秒...');
             await new Promise(resolve => setTimeout(resolve, 500));
         }
 
-        // 6. 第一次搜索比赛
+        // 7. 第一次搜索比赛
         let matchElement = findMatch(team1, team2);
 
         if (!matchElement) {
