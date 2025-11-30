@@ -328,6 +328,29 @@ function findMatch(team1, team2) {
 
             // 如果同时包含两队的关键词
             if (team1Matches > 0 && team2Matches > 0) {
+                // ✅ 过滤掉联赛标题（只有联赛名，没有比赛数据）
+                const upperText = text.toUpperCase();
+                const isLeagueTitle = (
+                    (upperText.includes(' LEAGUE') ||
+                        upperText.includes(' SERIE') ||
+                        upperText.includes(' DIVISION') ||
+                        upperText.includes(' LIGA') ||
+                        upperText.includes('BUNDESLIGA') ||
+                        upperText.includes(' CUP') ||
+                        upperText.includes('CHAMPIONSHIP') ||
+                        upperText.includes('FANTASY MATCHES'))
+                    &&
+                    // 且没有比赛特征（时间、赔率）
+                    !text.match(/\d+:\d+/) && // 没有时间
+                    !text.match(/[+\-]\d+/) && // 没有赔率
+                    !text.match(/\d+\.\d+/)    // 没有小数赔率
+                );
+
+                if (isLeagueTitle) {
+                    console.log(`[Crown Executor] 🚫 跳过联赛标题: "${text.substring(0, 50)}..."`);
+                    continue; // 跳过联赛标题
+                }
+
                 // ✅ 改进评分：基础分 + 文本长度惩罚
                 // 文本越短（越精确）得分越高
                 const baseScore = team1Matches + team2Matches;
