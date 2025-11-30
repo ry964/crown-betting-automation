@@ -328,13 +328,23 @@ function findMatch(team1, team2) {
 
             // 如果同时包含两队的关键词
             if (team1Matches > 0 && team2Matches > 0) {
+                // ✅ 改进评分：基础分 + 文本长度惩罚
+                // 文本越短（越精确）得分越高
+                const baseScore = team1Matches + team2Matches;
+                const textLength = text.length;
+
+                // 文本长度惩罚：每1000个字符-1分
+                const sizePenalty = Math.floor(textLength / 1000);
+                const finalScore = baseScore - sizePenalty;
+
                 matchCandidates.push({
                     element: element,
                     text: text.substring(0, 100), // 只保留前100字符用于日志
-                    score: team1Matches + team2Matches
+                    textLength: textLength,
+                    score: finalScore
                 });
 
-                console.log(`[Crown Executor] ✅ 找到候选比赛 (得分${team1Matches + team2Matches}): "${text.substring(0, 80)}..."`, element);
+                console.log(`[Crown Executor] ✅ 找到候选比赛 (得分${finalScore}, 长度${textLength}): "${text.substring(0, 80)}..."`, element);
             }
         }
 
@@ -342,10 +352,17 @@ function findMatch(team1, team2) {
 
         if (matchCandidates.length > 0) {
             // 按得分排序，选择最佳匹配
-            matchCandidates.sort((a, b) => b.score - a.score);
+            matchCandidates.sort((a, b) => {
+                // 先按得分排序
+                if (b.score !== a.score) {
+                    return b.score - a.score;
+                }
+                // 得分相同时，选择文本更短的（更精确）
+                return a.textLength - b.textLength;
+            });
             const best = matchCandidates[0];
 
-            console.log(`[Crown Executor] ✅ 找到比赛！得分: ${best.score}`, best.element);
+            console.log(`[Crown Executor] ✅ 找到比赛！得分: ${best.score}, 文本长度: ${best.textLength}`, best.element);
             return best.element;
         }
 
