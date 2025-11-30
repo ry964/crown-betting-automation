@@ -385,7 +385,7 @@ function findMatch(team1, team2) {
             const best = matchCandidates[0];
 
             console.log(`[Crown Executor] ✅ 找到比赛！得分: ${best.score}, 文本长度: ${best.textLength}`, best.element);
-            return best.element;
+            return { element: best.element, score: best.score }; // ✅ 返回对象，包含score
         }
 
         console.warn('[Crown Executor] ❌ 未找到匹配的比赛');
@@ -835,11 +835,16 @@ async function expandAndSearchConcurrently(team1, team2) {
 
     // ✅ 第一步：先搜索（很多联赛可能已经展开了）
     console.log('[Crown Executor] 🔍 第一次搜索（当前可见比赛）...');
-    let matchElement = findMatch(team1, team2);
+    let matchResult = findMatch(team1, team2);
 
-    if (matchElement) {
-        console.log('[Crown Executor] ✅ 在已展开的联赛中找到比赛！');
-        return matchElement;
+    // 如果找到且得分>0，说明是真正的比赛
+    if (matchResult && matchResult.score > 0) {
+        console.log(`[Crown Executor] ✅ 在已展开的联赛中找到比赛！得分${matchResult.score}`);
+        return matchResult.element;
+    }
+
+    if (matchResult) {
+        console.log(`[Crown Executor] ⚠️ 找到元素但得分太低(${matchResult.score})，可能是联赛容器，继续展开...`);
     }
 
     console.log('[Crown Executor] ⚠️ 未找到比赛，尝试展开所有折叠的联赛...');
@@ -874,11 +879,11 @@ async function expandAndSearchConcurrently(team1, team2) {
                 // 每点击5个就搜索一次
                 if (clickedCount % 5 === 0) {
                     await new Promise(resolve => setTimeout(resolve, 300));
-                    matchElement = findMatch(team1, team2);
-                    if (matchElement) {
-                        console.log(`[Crown Executor] ✅ 展开${clickedCount}个后找到比赛！`);
+                    const result = findMatch(team1, team2);
+                    if (result && result.score > 0) {
+                        console.log(`[Crown Executor] ✅ 展开${clickedCount}个后找到比赛！得分${result.score}`);
                         window.scrollTo(0, 0);
-                        return matchElement;
+                        return result.element;
                     }
                 }
 
@@ -896,7 +901,8 @@ async function expandAndSearchConcurrently(team1, team2) {
     await new Promise(resolve => setTimeout(resolve, 1000));
 
     console.log('[Crown Executor] 🔍 最终搜索...');
-    return findMatch(team1, team2);
+    const finalResult = findMatch(team1, team2);
+    return finalResult ? finalResult.element : null;
 }
 
 /**
