@@ -1042,20 +1042,8 @@ async function clickMatchToEnterDetails(matchElement, team1, team2) {
             const text = el.textContent.toLowerCase();
             const upperText = el.textContent.toUpperCase();
 
-            // ✅ 新增：排除联赛标题（包含LEAGUE、DIVISION等关键词的元素）
-            const isLeagueHeader = upperText.includes('LEAGUE') ||
-                upperText.includes('DIVISION') ||
-                upperText.includes('PREMIER') ||
-                upperText.includes('SERIE') ||
-                upperText.includes('LIGA') ||
-                upperText.includes('BUNDESLIGA') ||
-                upperText.includes('CHAMPIONSHIP');
-
-            if (isLeagueHeader) {
-                continue; // ✅ 跳过联赛标题
-            }
-
-            // 检查是否包含队名关键词
+            // ✅ 改进：只过滤纯联赛标题，不过滤包含队名的元素
+            // 先检查是否包含队名
             let hasTeamName = false;
             for (const word of [...team1Words, ...team2Words]) {
                 if (text.includes(word)) {
@@ -1063,6 +1051,25 @@ async function clickMatchToEnterDetails(matchElement, team1, team2) {
                     break;
                 }
             }
+
+            // ✅ 如果包含队名，就不要过滤（即使文本里有LEAGUE等词）
+            if (!hasTeamName) {
+                // 只有不包含队名时，才检查是否是联赛标题
+                const isLeagueHeader = upperText.includes('LEAGUE') ||
+                    upperText.includes('DIVISION') ||
+                    upperText.includes('PREMIER') ||
+                    upperText.includes('SERIE') ||
+                    upperText.includes('LIGA') ||
+                    upperText.includes('BUNDESLIGA') ||
+                    upperText.includes('CHAMPIONSHIP');
+
+                if (isLeagueHeader) {
+                    continue; // ✅ 跳过纯联赛标题
+                }
+            }
+
+            // 检查是否包含队名关键词（已经在上面检查过了）
+            // hasTeamName 已经在上面定义和赋值
 
             if (hasTeamName && el.children.length <= 3) {
                 // 检查元素是否可点击（有onclick、是链接、或有cursor:pointer样式）
