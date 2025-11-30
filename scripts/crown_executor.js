@@ -640,12 +640,14 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
         const team1 = message.team1;
         const team2 = message.team2;
         const league = message.league;
+        const matchTime = message.time; // ✅ 新增：获取比赛时间
 
         console.log(`[Crown Executor] 接收到点击指令:`);
         console.log(`  分类: ${category}`);
         console.log(`  运动: ${sportName}`);
         console.log(`  队名: ${team1} vs ${team2}`);
         console.log(`  联赛: ${league}`);
+        console.log(`  时间: ${matchTime}`);
 
         // 等待DOM加载完成
         if (document.readyState === 'loading') {
@@ -654,8 +656,12 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
             });
         }
 
-        // 开始跨时间分类搜索
-        await searchMatchAcrossCategories(category, sportName, team1, team2, league);
+        // 执行跨分类搜索（忽略category，使用固定顺序）
+        try {
+            await searchMatchAcrossCategories(sportName, team1, team2, league, matchTime);
+        } catch (error) {
+            console.error('[Crown Executor] 执行出错:', error);
+        }
     } else if (message.type === 'PING') {
         sendResponse({ status: 'active' });
     }
@@ -666,10 +672,11 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
 /**
  * 检测并处理日期选择页面（足球等运动需要选择日期）
  * @param {string} team1 - 队伍1名称
- * @param {string} team2 - 队伍2名称 
+ * @param {string} team2 - 队伍2名称
+ * @param {string} matchTime - 比赛时间（如 "Mon, Dec 1 at 4:00 AM"）
  * @returns {Promise<boolean>} - 是否处理了日期选择
  */
-async function detectAndNavigateDateSelection(team1, team2) {
+async function detectAndNavigateDateSelection(team1, team2, matchTime) {
     try {
         console.log('[Crown Executor] 🔍 检测日期选择页面...');
 
@@ -694,41 +701,79 @@ async function detectAndNavigateDateSelection(team1, team2) {
             return false; // 没有日期选择页面
         }
 
-        // 从OddsJam消息中获取比赛时间（需要从全局变量或重新从消息获取）
-        // 这里我们需要从消息中传入matchTime
-        // 暂时先点击"ALL DATES"或第一个可见日期
+        // ✅ 使用date_parser.js解析比赛时间
+        let targetDate = null;
+        if (matchTime && typeof convertToCrownDate === 'function') {
+            targetDate = convertToCrownDate(matchTime);
+            console.log(`[Crown Executor] 📅 目标日期: "${targetDate}"`);
+        }
 
-        console.log('[Crown Executor] 📅 查找"ALL DATES"或"ALL MATCHES"按钮...');
+        // 查找匹配的日期按钮
+        const dateButtons = [];
 
-        // 尝试点击"ALL DATES"或包含"ALL MATCHES"的按钮
         for (const el of allElements) {
             if (el.offsetParent === null) continue;
 
             const text = el.textContent.trim().toUpperCase();
 
-            // 优先查找"SUN 30 NOV ALL MATCHES"这样的按钮
+            // 查找日期格式的按钮（如SUN 30 NOV, MON 1 DEC）
+            if (/^(MON|TUE|WED|THU|FRI|SAT|SUN)\s+\d+\s+(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)/.test(text) && text.length < 100) {
+                dateButtons.push({
+                    element: el,
+                    date: text.match(/^[A-Z]+\s+\d+\s+[A-Z]+/)[0],
+                    fullText: text
+                });
+            }
+
+            // 也查找"ALL MATCHES"按钮
             if (text.includes('ALL MATCHES') && text.length < 100) {
-                console.log(`[Crown Executor] 📋 找到"ALL MATCHES"按钮: "${text}"`);
-                el.click();
+                dateButtons.push({
+                    element: el,
+                    date: 'ALL MATCHES',
+                    fullText: text
+                });
+            }
+        }
+
+        console.log(`[Crown Executor] 📋 找到${dateButtons.length}个日期按钮`);
+
+        // 优先尝试匹配精确日期
+        if (targetDate) {
+            for (const btn of dateButtons) {
+                if (btn.fullText.includes(targetDate)) {
+                    console.log(`[Crown Executor] 🎯 找到匹配日期: "${btn.fullText}"`);
+                    btn.element.click();
+                    console.log('[Crown Executor] ✅ 已点击匹配日期按钮');
+                    await new Promise(resolve => setTimeout(resolve, 1500));
+                    return true;
+                }
+            }
+
+            console.log('[Crown Executor] ⚠️ 未找到精确匹配的日期，尝试临近日期（时差容错）...');
+
+            // TODO: 实现±1天的日期容错
+            // 由于涉及日期计算，暂时先点击第一个日期按钮
+        }
+
+        // 如果没找到精确匹配，尝试点击"ALL MATCHES"或第一个日期
+        for (const btn of dateButtons) {
+            if (btn.date === 'ALL MATCHES') {
+                console.log(`[Crown Executor] 📋 点击"ALL MATCHES": "${btn.fullText}"`);
+                btn.element.click();
                 console.log('[Crown Executor] ✅ 已点击"ALL MATCHES"按钮');
-                await new Promise(resolve => setTimeout(resolve, 1500)); // 等待页面加载
+                await new Promise(resolve => setTimeout(resolve, 1500));
                 return true;
             }
         }
 
-        // 如果没找到ALL MATCHES，尝试点击ALL DATES
-        for (const el of allElements) {
-            if (el.offsetParent === null) continue;
-
-            const text = el.textContent.trim().toUpperCase();
-
-            if (text === 'ALL DATES' && el.children.length < 5) {
-                console.log('[Crown Executor] 📅 找到"ALL DATES"按钮');
-                el.click();
-                console.log('[Crown Executor] ✅ 已点击"ALL DATES"按钮');
-                await new Promise(resolve => setTimeout(resolve, 1500)); // 等待页面加载
-                return true;
-            }
+        // 最后尝试点击第一个日期按钮
+        if (dateButtons.length > 0 && dateButtons[0].date !== 'ALL MATCHES') {
+            const btn = dateButtons[0];
+            console.log(`[Crown Executor] 📅 点击第一个日期: "${btn.fullText}"`);
+            btn.element.click();
+            console.log('[Crown Executor] ✅ 已点击日期按钮');
+            await new Promise(resolve => setTimeout(resolve, 1500));
+            return true;
         }
 
         console.log('[Crown Executor] ⚠️ 未找到合适的日期按钮');
@@ -742,22 +787,19 @@ async function detectAndNavigateDateSelection(team1, team2) {
 
 /**
  * 跨时间分类搜索比赛
- * @param {string} initialCategory - 初步判断的时间分类
  * @param {string} sportName - 运动类型
  * @param {string} team1 - 队名1
  * @param {string} team2 - 队名2
  * @param {string} league - 联赛名称
+ * @param {string} matchTime - 比赛时间（如 "Mon, Dec 1 at 4:00 AM"）
  */
-async function searchMatchAcrossCategories(initialCategory, sportName, team1, team2, league) {
+async function searchMatchAcrossCategories(sportName, team1, team2, league, matchTime) {
     console.log('[Crown Executor] 🎯 开始跨时间分类搜索比赛');
 
-    // 定义搜索顺序：只搜索Today和Early（用户确认这两个分类足够）
-    const categories = ['Today', 'Early'];
+    // ✅ 固定搜索顺序：Early → Today（最优路径）
+    const searchOrder = ['Early', 'Today'];
 
-    // 将初步判断的分类放在最前面
-    const searchOrder = [initialCategory, ...categories.filter(c => c !== initialCategory)];
-
-    console.log('[Crown Executor] 搜索顺序:', searchOrder);
+    console.log('[Crown Executor] 🔄 固定搜索顺序:', searchOrder);
 
     for (const category of searchOrder) {
         console.log(`\n[Crown Executor] 📂 尝试在 ${category} 分类中搜索...`);
@@ -804,7 +846,7 @@ async function searchMatchAcrossCategories(initialCategory, sportName, team1, te
         // 3.5. 检测并处理日期选择页面（足球等运动需要）
         await new Promise(resolve => setTimeout(resolve, 1500)); // 等待页面响应
 
-        const hasDateSelection = await detectAndNavigateDateSelection(team1, team2);
+        const hasDateSelection = await detectAndNavigateDateSelection(team1, team2, matchTime);
 
         if (hasDateSelection) {
             console.log('[Crown Executor] ✅ 已完成日期选择导航');
