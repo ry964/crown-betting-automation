@@ -919,32 +919,136 @@ async function searchMatchAcrossCategories(initialCategory, sportName, team1, te
         if (matchElement) {
             console.log(`[Crown Executor] 🎉 在 ${category} 找到比赛！`);
 
-            // 点击进入比赛详情
-            matchElement.click();
-            console.log('[Crown Executor] ✅ 已点击进入比赛');
+            // 点击比赛进入详情页
+            const clicked = await clickMatchToEnterDetails(matchElement, team1, team2);
 
-            // 发送成功消息
-            chrome.runtime.sendMessage({
-                type: 'MATCH_FOUND',
-                category: category,
-                team1: team1,
-                team2: team2
-            });
+            if (clicked) {
+                console.log('[Crown Executor] ✅ 已进入比赛详情页');
 
-            return; // 成功找到，结束搜索
+                // 发送成功消息
+                chrome.runtime.sendMessage({
+                    type: 'MATCH_FOUND',
+                    category: category,
+                    sport: sportName,
+                    team1: team1,
+                    team2: team2
+                });
+
+                return true;
+            } else {
+                console.warn('[Crown Executor] ⚠️ 找到比赛但未能点击进入详情页');
+                // 继续搜索其他分类
+            }
         } else {
             console.log(`[Crown Executor] ❌ 在 ${category} 未找到比赛`);
         }
     }
 
     // 所有分类都搜索完毕，仍未找到
-    console.error('[Crown Executor] ❌ 搜索完所有时间分类，未找到比赛');
+    console.log('[Crown Executor] ❌ 搜索完所有时间分类，未找到比赛');
 
+    // 发送失败消息
     chrome.runtime.sendMessage({
         type: 'MATCH_NOT_FOUND',
+        sport: sportName,
         team1: team1,
         team2: team2
     });
+
+    return false;
+}
+
+/**
+ * Placeholder for normalizeTeamName function.
+ * This function is assumed to exist elsewhere in the codebase or needs to be defined.
+ * For the purpose of this edit, a basic implementation is provided to ensure syntactical correctness.
+ * In a real scenario, this would contain logic to clean and standardize team names.
+ */
+function normalizeTeamName(name) {
+    return name.toLowerCase().split(/\s+/);
+}
+
+/**
+ * 点击比赛元素中的队名进入详情页
+ * @param {HTMLElement} matchElement - 比赛元素
+ * @param {string} team1 - 队伍1名称
+ * @param {string} team2 - 队伍2名称
+ * @returns {Promise<boolean>} - 是否成功点击
+ */
+async function clickMatchToEnterDetails(matchElement, team1, team2) {
+    try {
+        console.log('[Crown Executor] 🖱️ 尝试点击队名进入比赛详情...');
+
+        // 在比赛元素及其子元素中查找队名
+        const allElements = matchElement.querySelectorAll('*');
+        const candidates = [];
+
+        const team1Words = normalizeTeamName(team1);
+        const team2Words = normalizeTeamName(team2);
+
+        // 查找包含队名的可点击元素
+        for (const el of allElements) {
+            if (el.offsetParent === null) continue; // 跳过不可见元素
+
+            const text = el.textContent.toLowerCase();
+
+            // 检查是否包含队名关键词
+            let hasTeamName = false;
+            for (const word of [...team1Words, ...team2Words]) {
+                if (text.includes(word)) {
+                    hasTeamName = true;
+                    break;
+                }
+            }
+
+            if (hasTeamName && el.children.length <= 3) {
+                // 检查元素是否可点击（有onclick、是链接、或有cursor:pointer样式）
+                const style = window.getComputedStyle(el);
+                const isClickable = el.onclick ||
+                    el.tagName === 'A' ||
+                    style.cursor === 'pointer' ||
+                    el.hasAttribute('onclick');
+
+                if (isClickable || el.parentElement?.onclick || el.parentElement?.tagName === 'A') {
+                    candidates.push({
+                        element: el,
+                        text: text.substring(0, 50)
+                    });
+                }
+            }
+        }
+
+        console.log(`[Crown Executor] 找到${candidates.length}个可点击的队名候选`);
+
+        // 尝试点击第一个候选（通常是主队或客队名）
+        if (candidates.length > 0) {
+            const candidate = candidates[0];
+            console.log(`[Crown Executor] 🖱️ 点击队名: "${candidate.text}"`, candidate.element);
+
+            // 尝试点击元素本身或其父元素
+            let clickTarget = candidate.element;
+            if (candidate.element.parentElement?.onclick || candidate.element.parentElement?.tagName === 'A') {
+                clickTarget = candidate.element.parentElement;
+            }
+
+            clickTarget.click();
+            console.log('[Crown Executor] ✅ 已点击队名');
+
+            // 等待页面跳转
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            return true;
+        }
+
+        // 如果没找到可点击的队名，尝试点击整个比赛元素
+        console.log('[Crown Executor] ⚠️ 未找到可点击的队名，尝试点击整个比赛元素');
+        matchElement.click();
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        return true;
+
+    } catch (error) {
+        console.error('[Crown Executor] ❌ 点击队名出错:', error);
+        return false;
+    }
 }
 
 console.log('[Crown Executor] 脚本已加载');
